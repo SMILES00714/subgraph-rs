@@ -1,0 +1,11 @@
+[package]
+name = "graph-token"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["lib", "cdylib"]
+
+[dependencies]
+subgraph = { path = "../../subgraph" }

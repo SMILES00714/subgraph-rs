@@ -1,0 +1,6 @@
+[workspace]
+members = [
+  "subgraph",
+  "cargo-subgraph",
+  "examples/*",
+]
