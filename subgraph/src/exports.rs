@@ -6,6 +6,7 @@
 
 #![doc(hidden)]
 
+use crate::ffi::boxed::ALIGN;
 use std::{
     alloc::{self, Layout},
     ptr,
@@ -23,9 +24,6 @@ pub extern "C" fn start() {
 
 #[export_name = "allocate"]
 pub extern "C" fn allocate(size: usize) -> *mut u8 {
-    // NOTE: Use 16-byte alignment for all alocations.
-    const ALIGN: usize = 16;
-
     let layout = match Layout::from_size_align(ALIGN, size) {
         Ok(value) => value,
         Err(_) => {

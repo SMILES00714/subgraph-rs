@@ -2,12 +2,16 @@
 //!
 //! This module just declares the "raw" host methods for WASM imports.
 
+/// A AssemblyScript object header.
+
 /// A managed AssemblyScript object.
 #[repr(C)]
 pub struct AscObject<T>
 where
     T: ?Sized,
 {
+    _padding: [u32; 0],
+
     pub mm_info: usize,
     pub gc_info: usize,
     pub gc_info2: usize,
