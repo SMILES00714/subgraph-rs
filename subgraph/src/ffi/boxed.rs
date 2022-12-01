@@ -1,12 +1,15 @@
 //! AssemblyScript object boxing.
 
-use super::sys::AscObject;
 use std::{
     alloc::{self, Layout},
     marker::PhantomData,
-    mem::{self, MaybeUninit},
+    mem,
     ptr::{self, NonNull},
+    slice,
 };
+
+/// TODO(nlordell):
+const TODO_TYPE_ID: u32 = 42;
 
 /// The default alignment to use for AssemblyScript allocations.
 ///
@@ -24,50 +27,168 @@ pub const ALIGN: usize = 16;
 #[repr(transparent)]
 pub struct AscPtr<T>(*const T);
 
-/// A boxed AssemblyScript value.
+/// A pointer to an AssemblyScript slice.
+pub type AscSlicePtr<T> = AscPtr<[T; 0]>;
+
+/// A boxed AssemblyScript object with a value.
 ///
-/// This represents values as pointers into an AssemblyScript object's data.
-/// This also implies that Rust DSTs are represented as "regular pointers" as
-/// the size information is stored in the object header.
+/// This represents values as pointers into an AssemblyScript object's data and
+/// is FFI safe.
 #[repr(transparent)]
-pub struct AscBox<T>
-where
-    T: ?Sized,
-{
-    ptr: NonNull<u8>,
+pub struct AscObject<T> {
+    data: NonNull<u8>,
     _marker: PhantomData<*const T>,
 }
 
-impl<T> AscBox<T> {
+impl<T> AscObject<T> {
+    /// Creates a new boxed AssemblyScript value.
+    pub fn new(value: T) -> Self {
+        let data = unsafe {
+            let data = alloc_object(TODO_TYPE_ID, Layout::new::<T>());
+            data.cast::<T>().as_ptr().write(value);
+            data
+        };
+
+        Self {
+            data,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Returns a reference to the inner data.
+    pub fn as_data(&self) -> &T {
+        // SAFETY: data points to a valid, aligned and initialized value.
+        unsafe { &*self.data.as_ptr().cast() }
+    }
+
     /// Returns the AssemblyScript managed object for the current boxed value.
     pub fn as_asc_ptr(&self) -> AscPtr<T> {
-        AscPtr(self.ptr.as_ptr().cast())
+        AscPtr(self.data.as_ptr().cast())
     }
 }
 
-impl<T> AscBox<[T]> {
+impl<T> Drop for AscObject<T> {
+    fn drop(&mut self) {
+        unsafe {
+            ptr::drop_in_place(self.data.as_ptr().cast::<T>());
+            dealloc_object(self.data);
+        }
+    }
+}
+
+/// A boxed AssemblyScript array.
+///
+/// This is largely equivalent to an `AscObject<[T]>`. The additional type is
+/// needed in order to specialize `Drop` implementations for the array items.
+#[repr(transparent)]
+pub struct AscArray<T> {
+    data: NonNull<u8>,
+    _marker: PhantomData<*const [T]>,
+}
+
+impl<T> AscArray<T> {
     /// Creates a new boxed array value for the exact sized iterator.
-    pub fn new_array<I>(items: I) -> Self
+    pub fn new<I>(items: I) -> Self
     where
         I: IntoIterator<Item = T>,
         I::IntoIter: ExactSizeIterator,
     {
         let items = items.into_iter();
-        Self::array_with_len(items.len(), items)
+        Self::with_len(items.len(), items)
     }
 
     /// Creates a new boxed array value with the specified length.
-    pub fn array_with_len(len: usize, items: impl IntoIterator<Item = T>) -> Self {
-        todo!()
+    ///
+    /// # Panics
+    ///
+    /// Panics if the iterator is not of the specified length.
+    pub fn with_len(len: usize, items: impl IntoIterator<Item = T>) -> Self {
+        let layout = match Layout::array::<T>(len) {
+            Ok(value) => value,
+            Err(_) => alloc::handle_alloc_error(Layout::new::<T>()),
+        };
+        let mut items = items.into_iter();
+
+        let data = unsafe {
+            let data = alloc_object(TODO_TYPE_ID, layout);
+            let drop_array_and_panic = |count| {
+                drop_array::<T>(count, data);
+                panic!("iterator does not match specified length");
+            };
+
+            for i in 0..len {
+                let item = items
+                    .next()
+                    // SAFETY: The array is initalized with `i` items at this
+                    // point.
+                    .unwrap_or_else(|| drop_array_and_panic(i));
+
+                data.as_ptr().cast::<T>().add(i).write(item);
+            }
+
+            if items.next().is_some() {
+                drop_array_and_panic(len);
+            }
+
+            data
+        };
+
+        Self {
+            data,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Returns the array as a slice.
+    pub fn as_slice(&self) -> &[T] {
+        // SAFETY: `data` is a valid object data pointer and outlives the header
+        // reference we are creating here.
+        let size = unsafe {
+            let header = AscHeader::for_data(self.data);
+            header.rt_size as usize
+        };
+        let len = size / mem::size_of::<T>();
+
+        // SAFETY: `data` points to an allocated array where all elements are
+        // initialized - this is ensured as part of its construction.
+        unsafe { slice::from_raw_parts(self.data.as_ptr().cast(), len) }
     }
 
     /// Returns the AssemblyScript managed object as an array.
     ///
     /// This is a work around for their not being a stable way for constructing
     /// DST values.
-    pub fn as_array_object(&self) -> AscPtr<[T; 0]> {
-        AscPtr(self.ptr.as_ptr().cast())
+    pub fn as_asc_ptr(&self) -> AscSlicePtr<T> {
+        AscPtr(self.data.as_ptr().cast())
     }
+}
+
+impl<T> Drop for AscArray<T> {
+    fn drop(&mut self) {
+        // SAFETY: `data` is a valid array pointer and is fully initialized by
+        // construction.
+        unsafe {
+            drop_array::<T>(self.as_slice().len(), self.data);
+        }
+    }
+}
+
+/// Implementation helper for dropping an array with `count` initialized items.
+///
+/// # Safety
+///
+/// Callers must ensure two things:
+/// - This is only ever called on data array pointers allocated with
+///   [`alloc_object`] with an array layout.
+/// - That `count` items from the array are initialized.
+unsafe fn drop_array<T>(count: usize, data: NonNull<u8>) {
+    if mem::needs_drop::<T>() {
+        for i in 0..count {
+            let item = data.as_ptr().cast::<T>().add(i);
+            ptr::drop_in_place(item);
+        }
+    }
+    dealloc_object(data);
 }
 
 /// AssemblyScript object header.
@@ -78,6 +199,27 @@ struct AscHeader {
     gc_info2: usize,
     rt_id: u32,
     rt_size: u32,
+}
+
+impl AscHeader {
+    /// Returns the object header for the specified data pointer.
+    ///
+    /// # Safety
+    ///
+    /// Callers must ensure two things:
+    /// - This is only ever called on data pointers allocated with
+    ///   [`alloc_object`].
+    /// - That the reference to the header does not outlive the data pointer. In
+    ///   particular, until [`dealloc_object`] is called.
+    unsafe fn for_data<'a>(data: NonNull<u8>) -> &'a AscHeader {
+        let header_size = mem::size_of::<AscHeader>();
+
+        // SAFETY: `data` was allocated with [`alloc_object`] and so is
+        // prepended with a header. Therefore, doing this pointer arithmetic is
+        // valid and will be well-aligned. Additionally, we initialized all
+        // header fields so it is safe to take a reference to it.
+        &*data.as_ptr().sub(header_size).cast::<AscHeader>()
+    }
 }
 
 /// Allocates an AssemblyScript object and returns a mutable reference to the
@@ -119,7 +261,7 @@ unsafe fn alloc_object(type_id: u32, data_layout: Layout) -> NonNull<u8> {
     let header = root.add(offset - header_size).cast::<AscHeader>();
     ptr::addr_of_mut!((*header).mm_info).write(layout.size());
     ptr::addr_of_mut!((*header).gc_info).write(layout.align());
-    ptr::addr_of_mut!((*header).mm_info).write(offset);
+    ptr::addr_of_mut!((*header).gc_info2).write(offset);
     ptr::addr_of_mut!((*header).rt_id).write(type_id);
     ptr::addr_of_mut!((*header).rt_size).write(data_layout.size() as _);
 
@@ -134,14 +276,13 @@ unsafe fn alloc_object(type_id: u32, data_layout: Layout) -> NonNull<u8> {
 ///
 /// This method only works for data pointers allocated with [`alloc_object`].
 unsafe fn dealloc_object(data: NonNull<u8>) {
-    let header_size = mem::size_of::<AscHeader>();
-
-    // SAFETY: `data` was allocated with [`alloc_object`] and so is prepended
-    // with a header. Therefore, doing this pointer arithmetic is valid and
-    // will be well-aligned. Additionally, we initialized all header fields so
-    // it is safe to take a reference to it.
-    let header = &*data.as_ptr().sub(header_size).cast::<AscHeader>();
-    let (size, align, offset) = (header.mm_info, header.gc_info, header.gc_info2);
+    // SAFETY: `data` is a valid object (ensured by the caller) and the header
+    // reference does not outlive the data pointer, as it is dropped before we
+    // actually de-allocate the pointer.
+    let (size, align, offset) = {
+        let header = AscHeader::for_data(data);
+        (header.mm_info, header.gc_info, header.gc_info2)
+    };
 
     // SAFETY: Layout is valid because we used it for allocation!
     let layout = Layout::from_size_align_unchecked(size, align);

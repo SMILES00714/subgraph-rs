@@ -6,20 +6,37 @@
 
 #![doc(hidden)]
 
-use crate::ffi::boxed::ALIGN;
+use crate::ffi::{boxed::ALIGN, str::AscString, sys};
 use std::{
     alloc::{self, Layout},
-    ptr,
+    panic, ptr,
 };
 
 #[export_name = "_start"]
 pub extern "C" fn start() {
+    panic::set_hook(Box::new(|info| {
+        let message = info
+            .payload()
+            .downcast_ref::<String>()
+            .map(|value| &**value)
+            .or_else(|| info.payload().downcast_ref::<&str>().copied())
+            .unwrap_or("panic occured");
+
+        let (file, line, column) = info
+            .location()
+            .map(|location| (location.file(), location.line(), location.column()))
+            .unwrap_or_default();
+
+        let message = AscString::new(message);
+        let file = AscString::new(file);
+        unsafe { sys::abort(message.as_asc_ptr(), file.as_asc_ptr(), line, column) }
+    }));
+
     // TODO(nlordell):
     // #[cfg(feature = "log")]
     // install_subgraph_logger();
     // #[cfg(feature = "allocator")]
     // install_custom_allocator();
-    // logging_panic_hook();
 }
 
 #[export_name = "allocate"]

@@ -1,8 +1,10 @@
 //! Subgraph logging.
 
+use crate::ffi::{str::AscString, sys};
+
 /// Log level.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-#[repr(C)]
+#[repr(u32)]
 pub enum Level {
     Critical = 0,
     Error = 1,
@@ -13,6 +15,6 @@ pub enum Level {
 
 /// Log a message at the specified level.
 pub fn log(level: Level, message: &str) {
-    let _ = (level, message);
-    todo!()
+    let message = AscString::new(message);
+    unsafe { sys::log(level as _, message.as_asc_ptr()) }
 }
