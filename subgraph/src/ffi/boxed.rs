@@ -2,8 +2,11 @@
 
 use std::{
     alloc::{self, Layout},
+    borrow::Borrow,
+    fmt::{self, Debug, Formatter},
     marker::PhantomData,
     mem,
+    ops::Deref,
     ptr::{self, NonNull},
     slice,
 };
@@ -26,9 +29,6 @@ pub const ALIGN: usize = 16;
 /// prepended by the required header.
 #[repr(transparent)]
 pub struct AscPtr<T>(*const T);
-
-/// A pointer to an AssemblyScript slice.
-pub type AscSlicePtr<T> = AscPtr<[T; 0]>;
 
 /// A boxed AssemblyScript object with a value.
 ///
@@ -56,14 +56,32 @@ impl<T> AscObject<T> {
     }
 
     /// Returns a reference to the inner data.
-    pub fn as_data(&self) -> &T {
+    pub fn data(&self) -> &AscValue<T> {
         // SAFETY: data points to a valid, aligned and initialized value.
+        // Additionally, `AscRef` is a transparent wrapper around `T`.
         unsafe { &*self.data.as_ptr().cast() }
     }
 
     /// Returns the AssemblyScript managed object for the current boxed value.
     pub fn as_asc_ptr(&self) -> AscPtr<T> {
-        AscPtr(self.data.as_ptr().cast())
+        self.data().as_asc_ptr()
+    }
+}
+
+impl<T> Borrow<AscValue<T>> for AscObject<T> {
+    fn borrow(&self) -> &AscValue<T> {
+        self.data()
+    }
+}
+
+impl<T> Debug for AscObject<T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_tuple("AscObject")
+            .field(&self.data().inner)
+            .finish()
     }
 }
 
@@ -75,6 +93,50 @@ impl<T> Drop for AscObject<T> {
         }
     }
 }
+
+/// A reference to an AssemblyScript object.
+#[repr(transparent)]
+pub struct AscValue<T> {
+    inner: T,
+}
+
+impl<T> AscValue<T> {
+    /// Returns the AssemblyScript managed object for the current boxed value.
+    pub fn as_asc_ptr(&self) -> AscPtr<T> {
+        AscPtr(&self.inner as _)
+    }
+}
+
+impl<T> Debug for AscValue<T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_tuple("AscRef").field(&self.inner).finish()
+    }
+}
+
+impl<T> Deref for AscValue<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl<T> ToOwned for AscValue<T>
+where
+    T: Clone,
+{
+    type Owned = AscObject<T>;
+
+    fn to_owned(&self) -> Self::Owned {
+        AscObject::new(self.inner.clone())
+    }
+}
+
+/// A pointer to an AssemblyScript slice.
+pub type AscSlicePtr<T> = AscPtr<[T; 0]>;
 
 /// A boxed AssemblyScript array.
 ///
@@ -140,26 +202,33 @@ impl<T> AscArray<T> {
     }
 
     /// Returns the array as a slice.
-    pub fn as_slice(&self) -> &[T] {
-        // SAFETY: `data` is a valid object data pointer and outlives the header
-        // reference we are creating here.
-        let size = unsafe {
-            let header = AscHeader::for_data(self.data);
-            header.rt_size as usize
-        };
-        let len = size / mem::size_of::<T>();
-
+    pub fn data(&self) -> &AscSlice<T> {
         // SAFETY: `data` points to an allocated array where all elements are
         // initialized - this is ensured as part of its construction.
-        unsafe { slice::from_raw_parts(self.data.as_ptr().cast(), len) }
+        // Additionally, `AscSlice` is a transparent wrapper around `[T; 0]`.
+        unsafe { &*self.data.as_ptr().cast() }
     }
 
-    /// Returns the AssemblyScript managed object as an array.
-    ///
-    /// This is a work around for their not being a stable way for constructing
-    /// DST values.
+    /// Returns a pointer to an AssemblyScript array for use over FFI.
     pub fn as_asc_ptr(&self) -> AscSlicePtr<T> {
-        AscPtr(self.data.as_ptr().cast())
+        self.data().as_asc_ptr()
+    }
+}
+
+impl<T> Borrow<AscSlice<T>> for AscArray<T> {
+    fn borrow(&self) -> &AscSlice<T> {
+        self.data()
+    }
+}
+
+impl<T> Debug for AscArray<T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_tuple("AscArray")
+            .field(&self.data().as_slice())
+            .finish()
     }
 }
 
@@ -168,7 +237,7 @@ impl<T> Drop for AscArray<T> {
         // SAFETY: `data` is a valid array pointer and is fully initialized by
         // construction.
         unsafe {
-            drop_array::<T>(self.as_slice().len(), self.data);
+            drop_array::<T>(self.data().len(), self.data);
         }
     }
 }
@@ -189,6 +258,65 @@ unsafe fn drop_array<T>(count: usize, data: NonNull<u8>) {
         }
     }
     dealloc_object(data);
+}
+
+/// A reference to an AssemblyScript object.
+#[repr(transparent)]
+pub struct AscSlice<T> {
+    inner: [T; 0],
+}
+
+impl<T> AscSlice<T> {
+    /// Returns the array as a slice.
+    pub fn as_slice(&self) -> &[T] {
+        let this = self.inner.as_ptr();
+
+        // SAFETY: `data` is a valid object data pointer and outlives the header
+        // reference we are creating here.
+        let size = unsafe {
+            let data = NonNull::new_unchecked(this as *mut T as *mut u8);
+            let header = AscHeader::for_data(data);
+            header.rt_size as usize
+        };
+        let len = size / mem::size_of::<T>();
+
+        // SAFETY: `data` points to an allocated array where all elements are
+        // initialized - this is ensured as part of its construction.
+        unsafe { slice::from_raw_parts(this, len) }
+    }
+
+    /// Returns a pointer to an AssemblyScript array for use over FFI.
+    pub fn as_asc_ptr(&self) -> AscSlicePtr<T> {
+        AscPtr(&self.inner as _)
+    }
+}
+
+impl<T> Debug for AscSlice<T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_tuple("AscSlice").field(&self.as_slice()).finish()
+    }
+}
+
+impl<T> Deref for AscSlice<T> {
+    type Target = [T];
+
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
+}
+
+impl<T> ToOwned for AscSlice<T>
+where
+    T: Clone,
+{
+    type Owned = AscArray<T>;
+
+    fn to_owned(&self) -> Self::Owned {
+        AscArray::new(self.as_slice().iter().cloned())
+    }
 }
 
 /// AssemblyScript object header.

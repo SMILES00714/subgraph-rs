@@ -1,7 +1,8 @@
 //! AssemblyScript string.
 
-use super::boxed::{AscArray, AscSlicePtr};
+use super::boxed::{AscArray, AscSlice, AscSlicePtr};
 use std::{
+    borrow::Borrow,
     fmt::{self, Debug, Formatter},
     mem,
     ops::Deref,
@@ -9,8 +10,9 @@ use std::{
 };
 
 /// A reference to an AssemblyScript string.
+#[repr(C)]
 pub struct AscStr {
-    inner: [u16],
+    inner: AscSlice<u16>,
 }
 
 impl AscStr {
@@ -29,11 +31,28 @@ impl AscStr {
     pub fn as_code_points(&self) -> &[u16] {
         &self.inner
     }
+
+    /// Returns the [`AscStr`] as a pointer.
+    pub fn as_asc_ptr(&self) -> AscSlicePtr<u16> {
+        self.inner.as_asc_ptr()
+    }
 }
 
 impl Debug for AscStr {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Debug::fmt(&self.to_string_lossy(), f)
+        f.debug_tuple("AscStr")
+            .field(&self.to_string_lossy())
+            .finish()
+    }
+}
+
+impl ToOwned for AscStr {
+    type Owned = AscString;
+
+    fn to_owned(&self) -> Self::Owned {
+        AscString {
+            inner: self.inner.to_owned(),
+        }
     }
 }
 
@@ -55,19 +74,22 @@ impl AscString {
 
     /// Returns a reference to a borrowed AssemblyScript string.
     pub fn as_asc_str(&self) -> &AscStr {
-        // SAFETY: DSTs are a bit of a mystery to me... To my understanding
-        // this should be safe because `Bytes` has a transparent layout, so
-        // `&[u16]` and `&AscStr`. Either way, we should get a fat pointer
-        // with the correct length and pointing to the start of the slice and
-        // transmuting between them should be safe.
-        unsafe { mem::transmute(self.inner.as_slice()) }
+        // SAFETY: `AscStr` is a transparent wrapper around `AscSlice`.
+        unsafe { mem::transmute(self.inner.data()) }
     }
+}
 
-    /// Returns the [`AscStr`] as a pointer.
-    ///
-    /// TODO(nlordell): Move this to `AscStr`.
-    pub fn as_asc_ptr(&self) -> AscSlicePtr<u16> {
-        self.inner.as_asc_ptr()
+impl Borrow<AscStr> for AscString {
+    fn borrow(&self) -> &AscStr {
+        self.as_asc_str()
+    }
+}
+
+impl Debug for AscString {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_tuple("AscString")
+            .field(&self.as_asc_str().to_string_lossy())
+            .finish()
     }
 }
 
@@ -76,11 +98,5 @@ impl Deref for AscString {
 
     fn deref(&self) -> &Self::Target {
         self.as_asc_str()
-    }
-}
-
-impl Debug for AscString {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Debug::fmt(self.as_asc_str(), f)
     }
 }
