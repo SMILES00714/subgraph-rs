@@ -21,15 +21,6 @@ const TODO_TYPE_ID: u32 = 42;
 /// pointers.
 pub const ALIGN: usize = 16;
 
-/// An pointer to an AssemblyScript object's data.
-///
-/// AssemblyScript requires pointers to managed data to be proceeded by the
-/// object header. This type can only be constructed from a boxed
-/// AssemblyScript value, which guarantees that the data is correctly
-/// prepended by the required header.
-#[repr(transparent)]
-pub struct AscPtr<T>(*const T);
-
 /// A boxed AssemblyScript object with a value.
 ///
 /// This represents values as pointers into an AssemblyScript object's data and
@@ -60,11 +51,6 @@ impl<T> AscObject<T> {
         // SAFETY: data points to a valid, aligned and initialized value.
         // Additionally, `AscRef` is a transparent wrapper around `T`.
         unsafe { &*self.data.as_ptr().cast() }
-    }
-
-    /// Returns the AssemblyScript managed object for the current boxed value.
-    pub fn as_asc_ptr(&self) -> AscPtr<T> {
-        self.data().as_asc_ptr()
     }
 }
 
@@ -100,13 +86,6 @@ pub struct AscValue<T> {
     inner: T,
 }
 
-impl<T> AscValue<T> {
-    /// Returns the AssemblyScript managed object for the current boxed value.
-    pub fn as_asc_ptr(&self) -> AscPtr<T> {
-        AscPtr(&self.inner as _)
-    }
-}
-
 impl<T> Debug for AscValue<T>
 where
     T: Debug,
@@ -134,9 +113,6 @@ where
         AscObject::new(self.inner.clone())
     }
 }
-
-/// A pointer to an AssemblyScript slice.
-pub type AscSlicePtr<T> = AscPtr<[T; 0]>;
 
 /// A boxed AssemblyScript array.
 ///
@@ -208,11 +184,6 @@ impl<T> AscArray<T> {
         // Additionally, `AscSlice` is a transparent wrapper around `[T; 0]`.
         unsafe { &*self.data.as_ptr().cast() }
     }
-
-    /// Returns a pointer to an AssemblyScript array for use over FFI.
-    pub fn as_asc_ptr(&self) -> AscSlicePtr<T> {
-        self.data().as_asc_ptr()
-    }
 }
 
 impl<T> Borrow<AscSlice<T>> for AscArray<T> {
@@ -263,6 +234,9 @@ unsafe fn drop_array<T>(count: usize, data: NonNull<u8>) {
 /// A reference to an AssemblyScript object.
 #[repr(transparent)]
 pub struct AscSlice<T> {
+    // FIXME(nlordell): Slices are technically "unsized" types. Unfortunately,
+    // unsized types are not FFI safe, and we want to use this over FFI
+    // boundries.
     inner: [T; 0],
 }
 
@@ -283,11 +257,6 @@ impl<T> AscSlice<T> {
         // SAFETY: `data` points to an allocated array where all elements are
         // initialized - this is ensured as part of its construction.
         unsafe { slice::from_raw_parts(this, len) }
-    }
-
-    /// Returns a pointer to an AssemblyScript array for use over FFI.
-    pub fn as_asc_ptr(&self) -> AscSlicePtr<T> {
-        AscPtr(&self.inner as _)
     }
 }
 

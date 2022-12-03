@@ -1,12 +1,11 @@
 //! AssemblyScript string.
 
-use super::boxed::{AscArray, AscSlice, AscSlicePtr};
+use super::boxed::{AscArray, AscSlice};
 use std::{
     borrow::Borrow,
     fmt::{self, Debug, Formatter},
     mem,
     ops::Deref,
-    string::FromUtf16Error,
 };
 
 /// A reference to an AssemblyScript string.
@@ -16,11 +15,6 @@ pub struct AscStr {
 }
 
 impl AscStr {
-    /// Converts the AssemblyScript string into a Rust `String`.
-    pub fn to_string(&self) -> Result<String, FromUtf16Error> {
-        String::from_utf16(self.as_code_points())
-    }
-
     /// Converts the AssemblyScript string into a Rust `String`, replacing
     /// invalid data with the replacement character (`U+FFFD`).
     pub fn to_string_lossy(&self) -> String {
@@ -30,11 +24,6 @@ impl AscStr {
     /// Returns a slice of the utf-16 code points for this string.
     pub fn as_code_points(&self) -> &[u16] {
         &self.inner
-    }
-
-    /// Returns the [`AscStr`] as a pointer.
-    pub fn as_asc_ptr(&self) -> AscSlicePtr<u16> {
-        self.inner.as_asc_ptr()
     }
 }
 

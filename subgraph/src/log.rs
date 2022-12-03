@@ -16,5 +16,5 @@ pub enum Level {
 /// Log a message at the specified level.
 pub fn log(level: Level, message: &str) {
     let message = AscString::new(message);
-    unsafe { sys::log(level as _, message.as_asc_ptr()) }
+    unsafe { sys::log__log(level as _, message.as_asc_str() as _) }
 }

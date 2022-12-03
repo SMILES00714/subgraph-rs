@@ -29,7 +29,14 @@ pub extern "C" fn start() {
 
         let message = AscString::new(message);
         let file = AscString::new(file);
-        unsafe { sys::abort(message.as_asc_ptr(), file.as_asc_ptr(), line, column) }
+        unsafe {
+            sys::abort(
+                message.as_asc_str() as _,
+                file.as_asc_str() as _,
+                line,
+                column,
+            )
+        }
     }));
 
     // TODO(nlordell):

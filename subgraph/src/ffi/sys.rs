@@ -2,20 +2,25 @@
 //!
 //! This module just declares the "raw" host methods for WASM imports.
 
-use super::boxed::AscSlicePtr;
+use super::{buf::AscTypedSlice, str::AscStr};
 
 #[link(wasm_import_module = "index")]
 extern "C" {
     #[link_name = "abort"]
     pub fn abort(
-        message: AscSlicePtr<u16>,
-        file_name: AscSlicePtr<u16>,
+        message: *const AscStr,
+        file_name: *const AscStr,
         line_number: u32,
         column_number: u32,
     ) -> !;
 
     #[link_name = "log.log"]
-    pub fn log(level: u32, message: AscSlicePtr<u16>);
+    pub fn log__log(level: u32, message: *const AscStr);
+
+    #[link_name = "typeConversion.bigIntToHex"]
+    pub fn type_conversion__big_int_to_hex(big_int: *const AscTypedSlice<u8>) -> *const AscStr;
+    #[link_name = "typeConversion.bigIntToString"]
+    pub fn type_conversion__big_int_to_string(big_int: *const AscTypedSlice<u8>) -> *const AscStr;
 }
 
 /// List of linked imports for Ethereum:
@@ -61,8 +66,8 @@ extern "C" {
 /// - [ ] store.get
 /// - [ ] store.remove
 /// - [ ] store.set
-/// - [ ] typeConversion.bigIntToHex
-/// - [ ] typeConversion.bigIntToString
+/// - [x] typeConversion.bigIntToHex
+/// - [x] typeConversion.bigIntToString
 /// - [ ] typeConversion.bytesToBase58
 /// - [ ] typeConversion.bytesToHex
 /// - [ ] typeConversion.bytesToString
