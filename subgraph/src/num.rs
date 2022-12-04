@@ -1,6 +1,6 @@
 use crate::ffi::{
-    buf::{AscArrayBuffer, AscTypedArray, AscTypedSlice},
-    sys,
+    buf::{AscArrayBuffer, AscTypedArray},
+    sys::{self, AscBigInt},
 };
 use std::{
     borrow::Cow,
@@ -9,7 +9,7 @@ use std::{
 
 /// A arbitrarily sized integer type.
 pub struct BigInt {
-    inner: Cow<'static, AscTypedSlice<u8>>,
+    inner: Cow<'static, AscBigInt>,
 }
 
 impl BigInt {

@@ -60,6 +60,15 @@ impl<T> Borrow<AscValue<T>> for AscObject<T> {
     }
 }
 
+impl<T> Clone for AscObject<T>
+where
+    T: Clone,
+{
+    fn clone(&self) -> Self {
+        self.data().to_owned()
+    }
+}
+
 impl<T> Debug for AscObject<T>
 where
     T: Debug,
@@ -189,6 +198,15 @@ impl<T> AscArray<T> {
 impl<T> Borrow<AscSlice<T>> for AscArray<T> {
     fn borrow(&self) -> &AscSlice<T> {
         self.data()
+    }
+}
+
+impl<T> Clone for AscArray<T>
+where
+    T: Clone,
+{
+    fn clone(&self) -> Self {
+        self.data().to_owned()
     }
 }
 

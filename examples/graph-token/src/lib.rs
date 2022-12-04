@@ -1,4 +1,4 @@
-use subgraph::{log, num::BigInt};
+use subgraph::{json, log, num::BigInt};
 
 #[no_mangle]
 pub extern "C" fn call_me() {
@@ -28,4 +28,18 @@ pub extern "C" fn call_me() {
             log::log(log::Level::Info, &s);
         }
     }
+
+    let json = json::Value::from_bytes(
+        r#"
+            [
+                {
+                    "hello": "world",
+                    "missing": null,
+                    "isCool": true
+                },
+                42.1
+            ]
+        "#,
+    );
+    log::log(log::Level::Info, &format!("{json:?} => {json}"));
 }

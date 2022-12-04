@@ -4,3 +4,4 @@ pub mod boxed;
 pub mod buf;
 pub mod str;
 pub mod sys;
+pub mod value;

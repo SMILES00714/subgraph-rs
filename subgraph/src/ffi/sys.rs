@@ -2,7 +2,10 @@
 //!
 //! This module just declares the "raw" host methods for WASM imports.
 
-use super::{buf::AscTypedSlice, str::AscStr};
+use super::{boxed::AscValue, buf::AscTypedArray, str::AscStr, value::AscJsonValue};
+
+pub type AscBytes = AscValue<AscTypedArray<u8>>;
+pub type AscBigInt = AscBytes;
 
 #[link(wasm_import_module = "index")]
 extern "C" {
@@ -14,13 +17,16 @@ extern "C" {
         column_number: u32,
     ) -> !;
 
+    #[link_name = "json.fromBytes"]
+    pub fn json__from_bytes(data: *const AscBytes) -> *const AscValue<AscJsonValue>;
+
     #[link_name = "log.log"]
     pub fn log__log(level: u32, message: *const AscStr);
 
     #[link_name = "typeConversion.bigIntToHex"]
-    pub fn type_conversion__big_int_to_hex(big_int: *const AscTypedSlice<u8>) -> *const AscStr;
+    pub fn type_conversion__big_int_to_hex(big_int: *const AscBigInt) -> *const AscStr;
     #[link_name = "typeConversion.bigIntToString"]
-    pub fn type_conversion__big_int_to_string(big_int: *const AscTypedSlice<u8>) -> *const AscStr;
+    pub fn type_conversion__big_int_to_string(big_int: *const AscBigInt) -> *const AscStr;
 }
 
 /// List of linked imports for Ethereum:
@@ -56,7 +62,7 @@ extern "C" {
 /// - [ ] ipfs.cat
 /// - [ ] ipfs.getBlock
 /// - [ ] ipfs.map
-/// - [ ] json.fromBytes
+/// - [x] json.fromBytes
 /// - [ ] json.toBigInt
 /// - [ ] json.toF64
 /// - [ ] json.toI64

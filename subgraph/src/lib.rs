@@ -5,5 +5,6 @@
 
 pub mod exports;
 mod ffi;
+pub mod json;
 pub mod log;
 pub mod num;

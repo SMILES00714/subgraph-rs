@@ -1,9 +1,10 @@
 //! AssemblyScript buffer and typed array definitions.
 
-use super::boxed::{AscArray, AscObject, AscSlice, AscValue};
-use std::{borrow::Borrow, marker::PhantomData, mem, slice};
+use super::boxed::{AscArray, AscObject, AscSlice};
+use std::{mem, slice};
 
 /// An AssemblyScript ArrayBuffer.
+#[derive(Clone)]
 #[repr(transparent)]
 pub struct AscArrayBuffer {
     inner: AscArray<u8>,
@@ -23,37 +24,15 @@ impl AscArrayBuffer {
     }
 }
 
-/// A reference to a typed array.
-#[repr(transparent)]
-pub struct AscTypedSlice<T> {
-    inner: AscValue<View<T>>,
-}
-
-impl<T> AscTypedSlice<T>
-where
-    T: AscTypedArrayItem,
-{
-    /// Returns a slice view into the AssemblyScript typed array reference.
-    pub fn as_slice(&self) -> &[T] {
-        self.inner.as_slice()
-    }
-}
-
-impl<T> ToOwned for AscTypedSlice<T>
-where
-    T: AscTypedArrayItem,
-{
-    type Owned = AscTypedArray<T>;
-
-    fn to_owned(&self) -> Self::Owned {
-        AscTypedArray::new(AscArrayBuffer::new(self.inner.as_bytes()))
-    }
-}
-
 /// A typed array view into an array buffer.
-#[repr(transparent)]
+#[repr(C)]
 pub struct AscTypedArray<T> {
-    inner: AscObject<View<T>>,
+    // FIXME(nlordell): In theory, this is a reference to an array buffer.
+    // However, we currently don't share array buffer data, and having the view
+    // own the buffer simplifies things in a lot of places.
+    buffer: AscArrayBuffer,
+    data_start: *const T,
+    byte_length: usize,
 }
 
 impl<T> AscTypedArray<T>
@@ -61,7 +40,7 @@ where
     T: AscTypedArrayItem,
 {
     /// Creates a new typed array
-    pub fn new(buffer: AscArrayBuffer) -> AscTypedArray<T> {
+    pub fn new(buffer: AscArrayBuffer) -> AscObject<AscTypedArray<T>> {
         let len = buffer.as_bytes().len();
         let trailing = len % mem::size_of::<T>();
 
@@ -71,61 +50,33 @@ where
         // buffer.
         let data_start = (buffer.inner.data() as *const AscSlice<u8>).cast();
 
-        Self {
-            inner: AscObject::new(View {
-                _buffer: buffer,
-                data_start,
-                byte_length: len - trailing,
-                _marker: PhantomData,
-            }),
-        }
+        AscObject::new(Self {
+            buffer,
+            data_start,
+            byte_length: len - trailing,
+        })
     }
 
-    /// Return a reference to the AssemblyScript typed array.
-    pub fn as_asc_typed_slice(&self) -> &AscTypedSlice<T> {
-        // SAFETY: `AscTypedSlice` has a transparent representation around an
-        // `AscValue`, so it is safe to cast references to one another.
-        unsafe { &*(self.inner.data() as *const AscValue<View<T>>).cast() }
+    /// Returns a slice view into the AssemblyScript typed array.
+    pub fn as_slice(&self) -> &[T] {
+        // SAFETY: Bounds checks for slicing is verified at construction, and
+        // transmutability and alignment are guaranteed by `AscTypedArrayItem`.
+        unsafe { slice::from_raw_parts(self.data_start, self.byte_length / mem::size_of::<T>()) }
     }
 }
 
-impl<T> Borrow<AscTypedSlice<T>> for AscTypedArray<T>
+impl<T> Clone for AscTypedArray<T>
 where
     T: AscTypedArrayItem,
 {
-    fn borrow(&self) -> &AscTypedSlice<T> {
-        self.as_asc_typed_slice()
-    }
-}
+    fn clone(&self) -> Self {
+        let buffer = self.buffer.clone();
+        let data_start = (buffer.inner.data() as *const AscSlice<u8>).cast();
 
-#[repr(C)]
-struct View<T> {
-    // FIXME(nlordell): In theory, this is a reference to an array buffer.
-    // However, we currently don't share array buffer data, and having the view
-    // own the buffer simplifies things in a lot of places.
-    _buffer: AscArrayBuffer,
-    data_start: *const u8,
-    byte_length: usize,
-    _marker: PhantomData<*const [T]>,
-}
-
-impl<T> View<T> {
-    fn as_bytes(&self) -> &[u8] {
-        // SAFETY: Bounds checks for slicing is verified at construction.
-        unsafe { slice::from_raw_parts(self.data_start, self.byte_length) }
-    }
-
-    fn as_slice(&self) -> &[T]
-    where
-        T: AscTypedArrayItem,
-    {
-        // SAFETY: Bounds checks for slicing is verified at construction, and
-        // transmutability and alignment are guaranteed by `AscTypedArrayItem`.
-        unsafe {
-            slice::from_raw_parts(
-                self.data_start.cast(),
-                self.byte_length / mem::size_of::<T>(),
-            )
+        Self {
+            buffer,
+            data_start,
+            byte_length: self.byte_length,
         }
     }
 }
