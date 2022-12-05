@@ -1,9 +1,13 @@
 //! Subgraph JSON values.
 
-use crate::ffi::{
-    buf::AscTypedArray,
-    sys,
-    value::{AscJsonValue, AscJsonValueData},
+use crate::{
+    ffi::{
+        buf::AscTypedArray,
+        str::AscString,
+        sys,
+        value::{AscJsonValue, AscJsonValueData},
+    },
+    num::BigInt,
 };
 use std::{
     borrow::Cow,
@@ -71,6 +75,60 @@ impl Value {
 
         Ok(Self::from_raw(raw))
     }
+
+    /// Returns the JSON value as a unit value, or `None` if the value is not
+    /// `null`.
+    pub fn as_null(&self) -> Option<()> {
+        match self {
+            Value::Null => Some(()),
+            _ => None,
+        }
+    }
+
+    /// Returns the JSON value as a boolean value, or `None` if the value is not
+    /// `true` or `false`.
+    pub fn as_bool(&self) -> Option<bool> {
+        match self {
+            Value::Bool(value) => Some(*value),
+            _ => None,
+        }
+    }
+
+    /// Returns the JSON value as a numeric value, or `None` if the value is not
+    /// a number.
+    pub fn as_number(&self) -> Option<&Number> {
+        match self {
+            Value::Number(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    /// Returns the JSON value as a string value, or `None` if the value is not
+    /// a string.
+    pub fn as_string(&self) -> Option<&str> {
+        match self {
+            Value::String(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    /// Returns the JSON value as a slice of values, or `None` if the value is
+    /// not an array.
+    pub fn as_array(&self) -> Option<&[Value]> {
+        match self {
+            Value::Array(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    /// Returns the JSON value as a map of values, or `None` if the value is not
+    /// an object.
+    pub fn as_object(&self) -> Option<&IndexMap<String, Value>> {
+        match self {
+            Value::Object(value) => Some(value),
+            _ => None,
+        }
+    }
 }
 
 impl Display for Value {
@@ -107,6 +165,33 @@ impl Display for Value {
 /// A arbitrary-precision JSON number.
 #[derive(Clone, Eq, PartialEq)]
 pub struct Number(Cow<'static, str>);
+
+impl Number {
+    /// Converts this number to a [`BigInt`].
+    pub fn to_big_int(&self) -> BigInt {
+        let str = AscString::new(&self.0);
+        let raw = unsafe { &*sys::json__to_big_int(str.as_asc_str() as _) };
+        BigInt::from_raw(raw)
+    }
+
+    /// Converts this number to a 64-bit float.
+    pub fn to_f64(&self) -> f64 {
+        let str = AscString::new(&self.0);
+        unsafe { sys::json__to_f64(str.as_asc_str() as _) }
+    }
+
+    /// Converts this number to a 64-bit signed integer.
+    pub fn to_i64(&self) -> i64 {
+        let str = AscString::new(&self.0);
+        unsafe { sys::json__to_i64(str.as_asc_str() as _) }
+    }
+
+    /// Converts this number to a 64-bit un-signed integer.
+    pub fn to_u64(&self) -> u64 {
+        let str = AscString::new(&self.0);
+        unsafe { sys::json__to_u64(str.as_asc_str() as _) }
+    }
+}
 
 impl Debug for Number {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

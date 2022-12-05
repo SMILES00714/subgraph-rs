@@ -55,6 +55,22 @@ pub extern "C" fn call_me() {
         log::log(log::Level::Info, &format!("{json:?}"));
     }
 
+    let json = json::Value::from_bytes(
+        r#"
+            {
+                "big": 115792089237316195423570985008687907853269984665640564039457584007913129639935,
+                "float": 13.37,
+                "signed": -42,
+                "unsigned": 42
+            }
+        "#,
+    );
+    let jnum = |name: &str| json.as_object().unwrap()[name].as_number().unwrap();
+    log::log(log::Level::Info, &format!("{}", jnum("big").to_big_int()));
+    log::log(log::Level::Info, &format!("{}", jnum("float").to_f64()));
+    log::log(log::Level::Info, &format!("{}", jnum("signed").to_i64()));
+    log::log(log::Level::Info, &format!("{}", jnum("unsigned").to_u64()));
+
     let digest = crypto::keccak256("Hello Subgraph");
     log::log(log::Level::Info, &format!("{digest:x?}"));
 }

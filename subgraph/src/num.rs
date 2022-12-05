@@ -13,6 +13,12 @@ pub struct BigInt {
 }
 
 impl BigInt {
+    pub(crate) fn from_raw(raw: &'static AscBigInt) -> Self {
+        Self {
+            inner: Cow::Borrowed(raw),
+        }
+    }
+
     // TODO(nlordell): Implement proper `BigInt` construction.
     pub fn temp_new(x: i8) -> Self {
         Self {

@@ -28,6 +28,14 @@ extern "C" {
 
     #[link_name = "json.fromBytes"]
     pub fn json__from_bytes(data: *const AscBytes) -> *const AscValue<AscJsonValue>;
+    #[link_name = "json.toBigInt"]
+    pub fn json__to_big_int(data: *const AscStr) -> *const AscBigInt;
+    #[link_name = "json.toF64"]
+    pub fn json__to_f64(data: *const AscStr) -> f64;
+    #[link_name = "json.toI64"]
+    pub fn json__to_i64(data: *const AscStr) -> i64;
+    #[link_name = "json.toU64"]
+    pub fn json__to_u64(data: *const AscStr) -> u64;
     #[link_name = "json.try_fromBytes"]
     pub fn json__try_from_bytes(
         data: *const AscBytes,
@@ -76,10 +84,10 @@ extern "C" {
 /// - [ ] ipfs.getBlock
 /// - [ ] ipfs.map
 /// - [x] json.fromBytes
-/// - [ ] json.toBigInt
-/// - [ ] json.toF64
-/// - [ ] json.toI64
-/// - [ ] json.toU64
+/// - [x] json.toBigInt
+/// - [x] json.toF64
+/// - [x] json.toI64
+/// - [x] json.toU64
 /// - [x] json.try_fromBytes
 /// - [x] log.log
 /// - [ ] store.get
@@ -91,4 +99,4 @@ extern "C" {
 /// - [ ] typeConversion.bytesToHex
 /// - [ ] typeConversion.bytesToString
 /// - [ ] typeConversion.stringToH160
-pub mod missing {}
+mod missing {}
