@@ -2,7 +2,12 @@
 //!
 //! This module just declares the "raw" host methods for WASM imports.
 
-use super::{boxed::AscValue, buf::AscTypedArray, str::AscStr, value::AscJsonValue};
+use super::{
+    boxed::{AscObject, AscValue},
+    buf::AscTypedArray,
+    str::AscStr,
+    value::{AscJsonValue, AscResult},
+};
 
 pub type AscByteArray = AscValue<AscTypedArray<u8>>;
 pub type AscBytes = AscByteArray;
@@ -23,6 +28,10 @@ extern "C" {
 
     #[link_name = "json.fromBytes"]
     pub fn json__from_bytes(data: *const AscBytes) -> *const AscValue<AscJsonValue>;
+    #[link_name = "json.try_fromBytes"]
+    pub fn json__try_from_bytes(
+        data: *const AscBytes,
+    ) -> *const AscValue<AscResult<AscObject<AscJsonValue>, bool>>;
 
     #[link_name = "log.log"]
     pub fn log__log(level: u32, message: *const AscStr);
@@ -54,7 +63,7 @@ extern "C" {
 /// - [ ] bigInt.pow
 /// - [ ] bigInt.rightShift
 /// - [ ] bigInt.times
-/// - [ ] crypto.keccak256
+/// - [x] crypto.keccak256
 /// - [ ] dataSource.address
 /// - [ ] dataSource.context
 /// - [ ] dataSource.create
@@ -71,7 +80,7 @@ extern "C" {
 /// - [ ] json.toF64
 /// - [ ] json.toI64
 /// - [ ] json.toU64
-/// - [ ] json.try_fromBytes
+/// - [x] json.try_fromBytes
 /// - [x] log.log
 /// - [ ] store.get
 /// - [ ] store.remove

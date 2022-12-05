@@ -89,6 +89,37 @@ impl<T> Drop for AscObject<T> {
     }
 }
 
+/// A nullable boxed AssemblyScript object.
+#[repr(transparent)]
+pub struct AscNullableObject<T> {
+    data: *mut u8,
+    _marker: PhantomData<*const T>,
+}
+
+impl<T> AscNullableObject<T> {
+    /// Returns a reference to the data if it is non-null.
+    pub fn data(&self) -> Option<&AscValue<T>> {
+        if self.data.is_null() {
+            return None;
+        }
+
+        // SAFETY: data points to a valid, aligned and initialized value.
+        // Additionally, `AscValue` is a transparent wrapper around `T`.
+        Some(unsafe { &*self.data.cast() })
+    }
+}
+
+impl<T> Drop for AscNullableObject<T> {
+    fn drop(&mut self) {
+        if let Some(data) = NonNull::new(self.data) {
+            drop(AscObject {
+                data,
+                _marker: self._marker,
+            })
+        }
+    }
+}
+
 /// A reference to an AssemblyScript object.
 #[repr(transparent)]
 pub struct AscValue<T> {

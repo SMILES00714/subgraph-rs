@@ -1,4 +1,4 @@
-use subgraph::{json, log, num::BigInt, crypto};
+use subgraph::{crypto, json, log, num::BigInt};
 
 #[no_mangle]
 pub extern "C" fn call_me() {
@@ -42,6 +42,18 @@ pub extern "C" fn call_me() {
         "#,
     );
     log::log(log::Level::Info, &format!("{json:?} => {json}"));
+
+    for json in [
+        r#""#,
+        r#"invalid"#,
+        r#"null"#,
+        r#"{"field":invalid}"#,
+        r#"{"field":null}"#,
+        r#"{"field":null,}"#,
+    ] {
+        let json = json::Value::try_from_bytes(json);
+        log::log(log::Level::Info, &format!("{json:?}"));
+    }
 
     let digest = crypto::keccak256("Hello Subgraph");
     log::log(log::Level::Info, &format!("{digest:x?}"));

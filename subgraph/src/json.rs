@@ -7,6 +7,7 @@ use crate::ffi::{
 };
 use std::{
     borrow::Cow,
+    error::Error,
     fmt::{self, Debug, Display, Formatter},
 };
 
@@ -59,6 +60,16 @@ impl Value {
         let raw = unsafe { &*sys::json__from_bytes(array.data() as *const _) };
 
         Self::from_raw(raw)
+    }
+
+    /// Parses a new JSON value from bytes, returning and error on failure.
+    pub fn try_from_bytes(bytes: impl AsRef<[u8]>) -> Result<Self, ParseError> {
+        let bytes = bytes.as_ref();
+        let array = AscTypedArray::from_bytes(bytes);
+        let result = unsafe { &*sys::json__try_from_bytes(array.data() as *const _) };
+        let raw = result.as_std_result().map_err(|_| ParseError)?.data();
+
+        Ok(Self::from_raw(raw))
     }
 }
 
@@ -114,3 +125,15 @@ impl Display for Number {
         f.write_str(&self.0)
     }
 }
+
+/// A JSON parse error.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct ParseError;
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str("JSON parse error")
+    }
+}
+
+impl Error for ParseError {}

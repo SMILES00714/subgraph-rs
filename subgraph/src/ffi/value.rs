@@ -1,7 +1,7 @@
 //! FFI-safe AssemblyScript dynamic values.
 
 use super::{
-    boxed::AscObject,
+    boxed::{AscNullableObject, AscObject},
     buf::AscArrayBuffer,
     str::{AscStr, AscString},
 };
@@ -137,6 +137,25 @@ impl Drop for AscJsonValue {
             AscJsonValueKind::Array => unsafe { ManuallyDrop::drop(&mut self.data.array) },
             AscJsonValueKind::Object => unsafe { ManuallyDrop::drop(&mut self.data.object) },
             _ => (),
+        }
+    }
+}
+
+/// An AssemblyScript result type.
+#[repr(C)]
+pub struct AscResult<T, E> {
+    ok: AscNullableObject<T>,
+    err: AscNullableObject<E>,
+}
+
+impl<T, E> AscResult<T, E> {
+    /// Converst the AssemblyScript result wrapper into a Rust standard library
+    /// [`Result`].
+    pub fn as_std_result(&self) -> Result<&T, &E> {
+        match (self.ok.data(), self.err.data()) {
+            (Some(ok), None) => Ok(ok),
+            (None, Some(err)) => Err(err),
+            _ => panic!("inconsistent result"),
         }
     }
 }
