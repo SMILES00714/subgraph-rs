@@ -12,9 +12,9 @@ pub struct AscArrayBuffer {
 
 impl AscArrayBuffer {
     /// Create a new array buffer with the specified data.
-    pub fn new(bytes: impl AsRef<[u8]>) -> Self {
+    pub fn new(bytes: &[u8]) -> Self {
         Self {
-            inner: AscArray::new(bytes.as_ref().iter().copied()),
+            inner: AscArray::new(bytes.iter().copied()),
         }
     }
 
@@ -40,7 +40,7 @@ where
     T: AscTypedArrayItem,
 {
     /// Creates a new typed array
-    pub fn new(buffer: AscArrayBuffer) -> AscObject<AscTypedArray<T>> {
+    pub fn new(buffer: AscArrayBuffer) -> AscObject<Self> {
         let len = buffer.as_bytes().len();
         let trailing = len % mem::size_of::<T>();
 
@@ -62,6 +62,13 @@ where
         // SAFETY: Bounds checks for slicing is verified at construction, and
         // transmutability and alignment are guaranteed by `AscTypedArrayItem`.
         unsafe { slice::from_raw_parts(self.data_start, self.byte_length / mem::size_of::<T>()) }
+    }
+}
+
+impl AscTypedArray<u8> {
+    /// Creates a `u8` view into an array buffer.
+    pub fn from_bytes(bytes: &[u8]) -> AscObject<Self> {
+        AscTypedArray::new(AscArrayBuffer::new(bytes))
     }
 }
 

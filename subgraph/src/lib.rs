@@ -8,3 +8,4 @@ mod ffi;
 pub mod json;
 pub mod log;
 pub mod num;
+pub mod crypto;

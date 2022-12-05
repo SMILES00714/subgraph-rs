@@ -1,7 +1,7 @@
 //! Subgraph JSON values.
 
 use crate::ffi::{
-    buf::{AscArrayBuffer, AscTypedArray},
+    buf::AscTypedArray,
     sys,
     value::{AscJsonValue, AscJsonValueData},
 };
@@ -54,7 +54,8 @@ impl Value {
 
     /// Parses a new JSON from from some bytes.
     pub fn from_bytes(bytes: impl AsRef<[u8]>) -> Self {
-        let array = AscTypedArray::new(AscArrayBuffer::new(bytes));
+        let bytes = bytes.as_ref();
+        let array = AscTypedArray::from_bytes(bytes);
         let raw = unsafe { &*sys::json__from_bytes(array.data() as *const _) };
 
         Self::from_raw(raw)

@@ -53,9 +53,7 @@ pub struct AscString {
 
 impl AscString {
     /// Creates a new AssemblyScript string from a Rust string slice.
-    pub fn new(s: impl AsRef<str>) -> Self {
-        let s = s.as_ref();
-
+    pub fn new(s: &str) -> Self {
         let len = s.encode_utf16().count();
         let inner = AscArray::with_len(len, s.encode_utf16());
 

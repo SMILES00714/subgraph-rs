@@ -4,7 +4,8 @@
 
 use super::{boxed::AscValue, buf::AscTypedArray, str::AscStr, value::AscJsonValue};
 
-pub type AscBytes = AscValue<AscTypedArray<u8>>;
+pub type AscByteArray = AscValue<AscTypedArray<u8>>;
+pub type AscBytes = AscByteArray;
 pub type AscBigInt = AscBytes;
 
 #[link(wasm_import_module = "index")]
@@ -16,6 +17,9 @@ extern "C" {
         line_number: u32,
         column_number: u32,
     ) -> !;
+
+    #[link_name = "crypto.keccak256"]
+    pub fn crypto__keccak256(data: *const AscByteArray) -> *const AscByteArray;
 
     #[link_name = "json.fromBytes"]
     pub fn json__from_bytes(data: *const AscBytes) -> *const AscValue<AscJsonValue>;

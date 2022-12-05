@@ -1,5 +1,5 @@
 use crate::ffi::{
-    buf::{AscArrayBuffer, AscTypedArray},
+    buf::AscTypedArray,
     sys::{self, AscBigInt},
 };
 use std::{
@@ -16,7 +16,7 @@ impl BigInt {
     // TODO(nlordell): Implement proper `BigInt` construction.
     pub fn temp_new(x: i8) -> Self {
         Self {
-            inner: Cow::Owned(AscTypedArray::new(AscArrayBuffer::new([x as _]))),
+            inner: Cow::Owned(AscTypedArray::from_bytes([x as _].as_slice())),
         }
     }
 
