@@ -6,6 +6,7 @@
 pub mod address;
 pub mod conv;
 pub mod crypto;
+pub mod datasource;
 pub mod exports;
 mod ffi;
 pub mod json;

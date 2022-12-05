@@ -1,4 +1,4 @@
-use subgraph::{address::Address, conv, crypto, json, log, num::BigInt};
+use subgraph::{address::Address, conv, crypto, datasource, json, log, num::BigInt};
 
 #[no_mangle]
 pub extern "C" fn call_me() {
@@ -86,4 +86,7 @@ pub extern "C" fn call_me() {
     ] {
         log::log(log::Level::Info, &value);
     }
+
+    let datasource_address = datasource::address();
+    log::log(log::Level::Info, &format!("{datasource_address}"));
 }

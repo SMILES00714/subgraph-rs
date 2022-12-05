@@ -13,6 +13,7 @@ pub type AscUint8Array = AscValue<AscTypedArray<u8>>;
 pub type AscByteArray = AscUint8Array;
 pub type AscBytes = AscByteArray;
 pub type AscBigInt = AscBytes;
+pub type AscAddress = AscBytes;
 
 #[link(wasm_import_module = "index")]
 extern "C" {
@@ -26,6 +27,9 @@ extern "C" {
 
     #[link_name = "crypto.keccak256"]
     pub fn crypto__keccak256(data: *const AscByteArray) -> *const AscByteArray;
+
+    #[link_name = "dataSource.address"]
+    pub fn data_source__address() -> *const AscAddress;
 
     #[link_name = "json.fromBytes"]
     pub fn json__from_bytes(data: *const AscBytes) -> *const AscValue<AscJsonValue>;
@@ -81,7 +85,7 @@ extern "C" {
 /// - [ ] bigInt.rightShift
 /// - [ ] bigInt.times
 /// - [x] crypto.keccak256
-/// - [ ] dataSource.address
+/// - [x] dataSource.address
 /// - [ ] dataSource.context
 /// - [ ] dataSource.create
 /// - [ ] dataSource.createWithContext
