@@ -9,7 +9,8 @@ use super::{
     value::{AscJsonValue, AscResult},
 };
 
-pub type AscByteArray = AscValue<AscTypedArray<u8>>;
+pub type AscUint8Array = AscValue<AscTypedArray<u8>>;
+pub type AscByteArray = AscUint8Array;
 pub type AscBytes = AscByteArray;
 pub type AscBigInt = AscBytes;
 
@@ -48,6 +49,14 @@ extern "C" {
     pub fn type_conversion__big_int_to_hex(big_int: *const AscBigInt) -> *const AscStr;
     #[link_name = "typeConversion.bigIntToString"]
     pub fn type_conversion__big_int_to_string(big_int: *const AscBigInt) -> *const AscStr;
+    #[link_name = "typeConversion.bytesToBase58"]
+    pub fn type_conversion__bytes_to_base58(bytes: *const AscUint8Array) -> *const AscStr;
+    #[link_name = "typeConversion.bytesToHex"]
+    pub fn type_conversion__bytes_to_hex(bytes: *const AscUint8Array) -> *const AscStr;
+    #[link_name = "typeConversion.bytesToString"]
+    pub fn type_conversion__bytes_to_string(bytes: *const AscUint8Array) -> *const AscStr;
+    #[link_name = "typeConversion.stringToH160"]
+    pub fn type_conversion__string_to_h160(bytes: *const AscStr) -> *const AscUint8Array;
 }
 
 /// List of linked imports for Ethereum:
@@ -95,8 +104,8 @@ extern "C" {
 /// - [ ] store.set
 /// - [x] typeConversion.bigIntToHex
 /// - [x] typeConversion.bigIntToString
-/// - [ ] typeConversion.bytesToBase58
-/// - [ ] typeConversion.bytesToHex
-/// - [ ] typeConversion.bytesToString
-/// - [ ] typeConversion.stringToH160
+/// - [x] typeConversion.bytesToBase58
+/// - [x] typeConversion.bytesToHex
+/// - [x] typeConversion.bytesToString
+/// - [x] typeConversion.stringToH160
 mod missing {}

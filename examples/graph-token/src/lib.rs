@@ -1,4 +1,4 @@
-use subgraph::{crypto, json, log, num::BigInt};
+use subgraph::{address::Address, conv, crypto, json, log, num::BigInt};
 
 #[no_mangle]
 pub extern "C" fn call_me() {
@@ -73,4 +73,17 @@ pub extern "C" fn call_me() {
 
     let digest = crypto::keccak256("Hello Subgraph");
     log::log(log::Level::Info, &format!("{digest:x?}"));
+
+    let address = Address::new("0xDEf1CA1fb7FBcDC777520aa7f396b4E015F497aB");
+    log::log(log::Level::Info, &format!("{address}"));
+
+    let bytes = b"hello";
+    for value in [
+        conv::hex(bytes),
+        conv::base58(bytes),
+        #[allow(deprecated)]
+        conv::string(bytes),
+    ] {
+        log::log(log::Level::Info, &value);
+    }
 }
