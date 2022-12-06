@@ -1,26 +1,31 @@
 //! AssemblyScript buffer and typed array definitions.
 
-use super::boxed::{AscArray, AscObject, AscSlice};
+use super::boxed::AscBox;
 use std::{mem, slice};
 
 /// An AssemblyScript ArrayBuffer.
 #[derive(Clone)]
 #[repr(transparent)]
 pub struct AscArrayBuffer {
-    inner: AscArray<u8>,
+    inner: AscBox<[u8]>,
 }
 
 impl AscArrayBuffer {
     /// Create a new array buffer with the specified data.
     pub fn new(bytes: &[u8]) -> Self {
         Self {
-            inner: AscArray::new(bytes.iter().copied()),
+            inner: AscBox::from_slice(bytes),
         }
     }
 
     /// Returns an array buffer as a slice of bytes.
     pub fn as_bytes(&self) -> &[u8] {
-        self.inner.data().as_slice()
+        self.inner.as_asc_ref().as_slice()
+    }
+
+    /// Returns a pointer to the buffer data.
+    pub fn as_ptr(&self) -> *const u8 {
+        self.as_bytes().as_ptr()
     }
 }
 
@@ -40,7 +45,7 @@ where
     T: AscTypedArrayItem,
 {
     /// Creates a new typed array
-    pub fn new(buffer: AscArrayBuffer) -> AscObject<Self> {
+    pub fn new(buffer: AscArrayBuffer) -> AscBox<Self> {
         let len = buffer.as_bytes().len();
         let trailing = len % mem::size_of::<T>();
 
@@ -48,9 +53,9 @@ where
         // relative to `buffer`. In other words, `data_start == buffer` when
         // specifyging a typed array that starts at the beginning of the array
         // buffer.
-        let data_start = (buffer.inner.data() as *const AscSlice<u8>).cast();
+        let data_start = buffer.as_ptr().cast();
 
-        AscObject::new(Self {
+        AscBox::new(Self {
             buffer,
             data_start,
             byte_length: len - trailing,
@@ -67,7 +72,7 @@ where
 
 impl AscTypedArray<u8> {
     /// Creates a `u8` view into an array buffer.
-    pub fn from_bytes(bytes: &[u8]) -> AscObject<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> AscBox<Self> {
         AscTypedArray::new(AscArrayBuffer::new(bytes))
     }
 }
@@ -78,7 +83,7 @@ where
 {
     fn clone(&self) -> Self {
         let buffer = self.buffer.clone();
-        let data_start = (buffer.inner.data() as *const AscSlice<u8>).cast();
+        let data_start = buffer.as_ptr().cast();
 
         Self {
             buffer,

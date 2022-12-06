@@ -3,13 +3,13 @@
 //! This module just declares the "raw" host methods for WASM imports.
 
 use super::{
-    boxed::{AscObject, AscValue},
+    boxed::{AscBox, AscRef},
     buf::AscTypedArray,
-    str::AscStr,
-    value::{AscJsonValue, AscResult},
+    str::{AscStr, AscString},
+    value::{AscArray, AscJsonValue, AscResult},
 };
 
-pub type AscUint8Array = AscValue<AscTypedArray<u8>>;
+pub type AscUint8Array = AscRef<AscTypedArray<u8>>;
 pub type AscByteArray = AscUint8Array;
 pub type AscBytes = AscByteArray;
 pub type AscBigInt = AscBytes;
@@ -30,9 +30,11 @@ extern "C" {
 
     #[link_name = "dataSource.address"]
     pub fn data_source__address() -> *const AscAddress;
+    #[link_name = "dataSource.create"]
+    pub fn data_source__create(name: *const AscStr, params: *const AscRef<AscArray<AscString>>);
 
     #[link_name = "json.fromBytes"]
-    pub fn json__from_bytes(data: *const AscBytes) -> *const AscValue<AscJsonValue>;
+    pub fn json__from_bytes(data: *const AscBytes) -> *const AscRef<AscJsonValue>;
     #[link_name = "json.toBigInt"]
     pub fn json__to_big_int(data: *const AscStr) -> *const AscBigInt;
     #[link_name = "json.toF64"]
@@ -44,7 +46,7 @@ extern "C" {
     #[link_name = "json.try_fromBytes"]
     pub fn json__try_from_bytes(
         data: *const AscBytes,
-    ) -> *const AscValue<AscResult<AscObject<AscJsonValue>, bool>>;
+    ) -> *const AscRef<AscResult<AscBox<AscJsonValue>, bool>>;
 
     #[link_name = "log.log"]
     pub fn log__log(level: u32, message: *const AscStr);

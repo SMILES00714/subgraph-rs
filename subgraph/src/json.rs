@@ -39,17 +39,20 @@ impl Value {
                 Self::Number(Number(Cow::Owned(value.to_string_lossy())))
             }
             AscJsonValueData::String(value) => Self::String(value.to_string_lossy()),
-            AscJsonValueData::Array(value) => {
-                Self::Array(value.iter().copied().map(Self::from_raw).collect())
-            }
+            AscJsonValueData::Array(value) => Self::Array(
+                value
+                    .iter()
+                    .map(|value| Self::from_raw(value.as_asc_ref()))
+                    .collect(),
+            ),
             AscJsonValueData::Object(value) => Self::Object(
                 value
                     .iter()
-                    .copied()
                     .map(|entry| {
+                        let entry = entry.as_asc_ref();
                         (
                             entry.key.to_string_lossy(),
-                            Self::from_raw(entry.value.data()),
+                            Self::from_raw(entry.value.as_asc_ref()),
                         )
                     })
                     .collect(),
@@ -61,7 +64,7 @@ impl Value {
     pub fn from_bytes(bytes: impl AsRef<[u8]>) -> Self {
         let bytes = bytes.as_ref();
         let array = AscTypedArray::from_bytes(bytes);
-        let raw = unsafe { &*sys::json__from_bytes(array.data() as *const _) };
+        let raw = unsafe { &*sys::json__from_bytes(array.as_ptr()) };
 
         Self::from_raw(raw)
     }
@@ -70,8 +73,8 @@ impl Value {
     pub fn try_from_bytes(bytes: impl AsRef<[u8]>) -> Result<Self, ParseError> {
         let bytes = bytes.as_ref();
         let array = AscTypedArray::from_bytes(bytes);
-        let result = unsafe { &*sys::json__try_from_bytes(array.data() as *const _) };
-        let raw = result.as_std_result().map_err(|_| ParseError)?.data();
+        let result = unsafe { &*sys::json__try_from_bytes(array.as_ptr()) };
+        let raw = result.as_std_result().map_err(|_| ParseError)?.as_asc_ref();
 
         Ok(Self::from_raw(raw))
     }
@@ -170,26 +173,26 @@ impl Number {
     /// Converts this number to a [`BigInt`].
     pub fn to_big_int(&self) -> BigInt {
         let str = AscString::new(&self.0);
-        let raw = unsafe { &*sys::json__to_big_int(str.as_asc_str() as _) };
+        let raw = unsafe { &*sys::json__to_big_int(str.as_ptr()) };
         BigInt::from_raw(raw)
     }
 
     /// Converts this number to a 64-bit float.
     pub fn to_f64(&self) -> f64 {
         let str = AscString::new(&self.0);
-        unsafe { sys::json__to_f64(str.as_asc_str() as _) }
+        unsafe { sys::json__to_f64(str.as_ptr()) }
     }
 
     /// Converts this number to a 64-bit signed integer.
     pub fn to_i64(&self) -> i64 {
         let str = AscString::new(&self.0);
-        unsafe { sys::json__to_i64(str.as_asc_str() as _) }
+        unsafe { sys::json__to_i64(str.as_ptr()) }
     }
 
     /// Converts this number to a 64-bit un-signed integer.
     pub fn to_u64(&self) -> u64 {
         let str = AscString::new(&self.0);
-        unsafe { sys::json__to_u64(str.as_asc_str() as _) }
+        unsafe { sys::json__to_u64(str.as_ptr()) }
     }
 }
 

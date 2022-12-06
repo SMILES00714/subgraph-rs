@@ -6,6 +6,6 @@ use crate::ffi::{buf::AscTypedArray, sys};
 pub fn keccak256(data: impl AsRef<[u8]>) -> [u8; 32] {
     let data = data.as_ref();
     let array = AscTypedArray::from_bytes(data);
-    let digest = unsafe { &*sys::crypto__keccak256(array.data() as *const _) };
+    let digest = unsafe { &*sys::crypto__keccak256(array.as_ptr()) };
     digest.as_slice().try_into().unwrap()
 }

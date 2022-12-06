@@ -6,7 +6,11 @@
 
 #![doc(hidden)]
 
-use crate::ffi::{boxed::ALIGN, str::AscString, sys};
+use crate::ffi::{
+    boxed::{ALIGN, TYPE_ID},
+    str::AscString,
+    sys,
+};
 use std::{
     alloc::{self, Layout},
     panic, ptr,
@@ -29,14 +33,7 @@ pub extern "C" fn start() {
 
         let message = AscString::new(message);
         let file = AscString::new(file);
-        unsafe {
-            sys::abort(
-                message.as_asc_str() as _,
-                file.as_asc_str() as _,
-                line,
-                column,
-            )
-        }
+        unsafe { sys::abort(message.as_ptr(), file.as_ptr(), line, column) }
     }));
 
     // TODO(nlordell):
@@ -62,11 +59,6 @@ pub extern "C" fn allocate(size: usize) -> *mut u8 {
 }
 
 #[export_name = "id_of_type"]
-pub extern "C" fn id_of_type(_type_index: u32) -> usize {
-    // FIXME(nlordell): We currently don't use AssemblyScript type IDs at all
-    // internally in the module. Additionally, the Subgraph host only uses these
-    // to be compatible with the AssemblyScript runtime, which isn't a concern
-    // for us. For completeness, this should be implemented in the future in
-    // case the host starts requiring these values to be correct.
-    0
+pub extern "C" fn id_of_type(_type_index: u32) -> u32 {
+    TYPE_ID
 }

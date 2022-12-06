@@ -1,10 +1,9 @@
 //! AssemblyScript string.
 
-use super::boxed::{AscArray, AscSlice};
+use super::boxed::{AscBox, AscSlice};
 use std::{
     borrow::Borrow,
     fmt::{self, Debug, Formatter},
-    mem,
     ops::Deref,
 };
 
@@ -48,14 +47,14 @@ impl ToOwned for AscStr {
 /// An owned AssemblyScript string.
 #[repr(transparent)]
 pub struct AscString {
-    inner: AscArray<u16>,
+    inner: AscBox<[u16]>,
 }
 
 impl AscString {
     /// Creates a new AssemblyScript string from a Rust string slice.
     pub fn new(s: &str) -> Self {
         let len = s.encode_utf16().count();
-        let inner = AscArray::with_len(len, s.encode_utf16());
+        let inner = AscBox::with_len(len, s.encode_utf16());
 
         Self { inner }
     }
@@ -63,7 +62,12 @@ impl AscString {
     /// Returns a reference to a borrowed AssemblyScript string.
     pub fn as_asc_str(&self) -> &AscStr {
         // SAFETY: `AscStr` is a transparent wrapper around `AscSlice`.
-        unsafe { mem::transmute(self.inner.data()) }
+        unsafe { &*self.inner.as_ptr().cast() }
+    }
+
+    /// Returns a pointer to an AssemblyScript string.
+    pub fn as_ptr(&self) -> *const AscStr {
+        self.as_asc_str() as _
     }
 }
 
@@ -76,7 +80,7 @@ impl Borrow<AscStr> for AscString {
 impl Debug for AscString {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_tuple("AscString")
-            .field(&self.as_asc_str().to_string_lossy())
+            .field(&self.to_string_lossy())
             .finish()
     }
 }

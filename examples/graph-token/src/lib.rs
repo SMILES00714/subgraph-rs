@@ -89,4 +89,12 @@ pub extern "C" fn call_me() {
 
     let datasource_address = datasource::address();
     log::log(log::Level::Info, &format!("{datasource_address}"));
+
+    // The test-bench doesn't seem to like templated data sources. Uncommenting
+    // this line will cause a panic, but the data source creation with the
+    // provided parameters, which is good enough for me:
+    // ```
+    // INFO Create data source, params: foo,bar, name: example template
+    // ```
+    //datasource::create("example template", ["foo", "bar"]);
 }

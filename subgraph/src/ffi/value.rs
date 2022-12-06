@@ -1,49 +1,46 @@
 //! FFI-safe AssemblyScript dynamic values.
 
 use super::{
-    boxed::{AscNullableObject, AscObject},
-    buf::AscArrayBuffer,
+    boxed::{AscBox, AscNullableBox},
     str::{AscStr, AscString},
 };
-use std::{mem::ManuallyDrop, ptr, slice};
+use std::{
+    mem::{self, ManuallyDrop},
+    slice,
+};
 
 /// An array of AssemblyScript values.
 #[repr(C)]
-pub struct AscValueArray<T> {
-    buffer: AscArrayBuffer,
-    data_start: *mut AscObject<T>,
+pub struct AscArray<T> {
+    buffer: AscBox<[T]>,
+    data_start: *const T,
     byte_length: usize,
     length: usize,
 }
 
-impl<T> AscValueArray<T> {
+impl<T> AscArray<T> {
+    /// Creates a new AssemblyScript array from the specificed vector.
+    pub fn new(items: Vec<T>) -> AscBox<Self> {
+        let length = items.len();
+
+        let buffer = items.into_iter().collect::<AscBox<_>>();
+        let data_start = buffer.as_ptr().cast();
+        let byte_length = length * mem::size_of::<T>();
+
+        AscBox::new(Self {
+            buffer,
+            data_start,
+            byte_length,
+            length,
+        })
+    }
+
     /// Returns the array as a slice.
-    pub fn as_slice(&self) -> &[&T] {
+    pub fn as_slice(&self) -> &[T] {
         // SAFETY: `data` points to an allocated value array of known length
         // where all elements are initialized. Additionally, `AscObject<T>` is a
         // transparent representation of a pointer to `T`.
-        unsafe { slice::from_raw_parts(self.data_start.cast(), self.length) }
-    }
-}
-
-impl<T> Drop for AscValueArray<T> {
-    fn drop(&mut self) {
-        // SAFETY: Array is fully initialized by construction an no longer
-        // accessible as it is being dropped.
-        unsafe { drop_array(self.length, self.data_start) }
-    }
-}
-
-/// Implementation helper for dropping a value array with `count` initialized
-/// items.
-///
-/// # Safety
-///
-/// Callers must ensure that `count` items from the array are initialized and
-/// that the array items are no longer used.
-unsafe fn drop_array<T>(count: usize, data: *mut AscObject<T>) {
-    for i in 0..count {
-        ptr::drop_in_place(data.add(i));
+        unsafe { slice::from_raw_parts(self.data_start, self.length) }
     }
 }
 
@@ -69,24 +66,24 @@ union AscJsonValuePayload {
     bool: bool,
     number: ManuallyDrop<AscString>,
     string: ManuallyDrop<AscString>,
-    array: ManuallyDrop<AscObject<AscJsonArray>>,
-    object: ManuallyDrop<AscObject<AscJsonObject>>,
+    array: ManuallyDrop<AscBox<AscJsonArray>>,
+    object: ManuallyDrop<AscBox<AscJsonObject>>,
 }
 
 /// A JSON array.
-type AscJsonArray = AscValueArray<AscJsonValue>;
+type AscJsonArray = AscArray<AscBox<AscJsonValue>>;
 
 /// A JSON object.
 #[repr(C)]
 struct AscJsonObject {
-    entries: AscObject<AscValueArray<AscJsonObjectEntry>>,
+    entries: AscBox<AscArray<AscBox<AscJsonObjectEntry>>>,
 }
 
 /// An entry in a JSON object.
 #[repr(C)]
 pub struct AscJsonObjectEntry {
     pub key: AscString,
-    pub value: AscObject<AscJsonValue>,
+    pub value: AscBox<AscJsonValue>,
 }
 
 /// An enum representing data held in a JSON value.
@@ -95,8 +92,8 @@ pub enum AscJsonValueData<'a> {
     Bool(bool),
     Number(&'a AscStr),
     String(&'a AscStr),
-    Array(&'a [&'a AscJsonValue]),
-    Object(&'a [&'a AscJsonObjectEntry]),
+    Array(&'a [AscBox<AscJsonValue>]),
+    Object(&'a [AscBox<AscJsonObjectEntry>]),
 }
 
 /// An AssemblyScript JSON value.
@@ -116,11 +113,16 @@ impl AscJsonValue {
                 AscJsonValueKind::Number => AscJsonValueData::Number(&self.data.string),
                 AscJsonValueKind::String => AscJsonValueData::String(&self.data.string),
                 AscJsonValueKind::Array => {
-                    AscJsonValueData::Array(self.data.array.data().as_slice())
+                    AscJsonValueData::Array(self.data.array.as_asc_ref().as_slice())
                 }
-                AscJsonValueKind::Object => {
-                    AscJsonValueData::Object(self.data.object.data().entries.data().as_slice())
-                }
+                AscJsonValueKind::Object => AscJsonValueData::Object(
+                    self.data
+                        .object
+                        .as_asc_ref()
+                        .entries
+                        .as_asc_ref()
+                        .as_slice(),
+                ),
                 _ => panic!("unknown JSON value kind {:#x}", self.kind as u32),
             }
         }
@@ -144,15 +146,15 @@ impl Drop for AscJsonValue {
 /// An AssemblyScript result type.
 #[repr(C)]
 pub struct AscResult<T, E> {
-    ok: AscNullableObject<T>,
-    err: AscNullableObject<E>,
+    ok: AscNullableBox<T>,
+    err: AscNullableBox<E>,
 }
 
 impl<T, E> AscResult<T, E> {
     /// Converst the AssemblyScript result wrapper into a Rust standard library
     /// [`Result`].
     pub fn as_std_result(&self) -> Result<&T, &E> {
-        match (self.ok.data(), self.err.data()) {
+        match (self.ok.as_asc_ref(), self.err.as_asc_ref()) {
             (Some(ok), None) => Ok(ok),
             (None, Some(err)) => Err(err),
             _ => panic!("inconsistent result"),

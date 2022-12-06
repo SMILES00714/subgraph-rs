@@ -54,7 +54,7 @@ impl Debug for BigInt {
 
 impl Display for BigInt {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let str = unsafe { &*sys::type_conversion__big_int_to_string(&*self.inner as *const _) };
+        let str = unsafe { &*sys::type_conversion__big_int_to_string(&*self.inner as _) };
 
         let str = str.to_string_lossy();
         let (is_non_negative, abs) = match str.strip_prefix('-') {
@@ -79,7 +79,7 @@ impl UpperHex for BigInt {
 }
 
 fn fmt_hex(value: &BigInt, f: &mut Formatter, transform: impl FnOnce(&mut str)) -> fmt::Result {
-    let str = unsafe { &*sys::type_conversion__big_int_to_hex(&*value.inner as *const _) };
+    let str = unsafe { &*sys::type_conversion__big_int_to_hex(&*value.inner as _) };
 
     let mut str = str.to_string_lossy();
     let str = match str.starts_with("0x") {

@@ -4,15 +4,19 @@ use std::{
     alloc::{self, Layout},
     borrow::Borrow,
     fmt::{self, Debug, Formatter},
-    marker::PhantomData,
+    iter::FromIterator,
     mem,
     ops::Deref,
     ptr::{self, NonNull},
     slice,
 };
 
-/// TODO(nlordell):
-const TODO_TYPE_ID: u32 = 42;
+/// FIXME(nlordell): We currently don't use AssemblyScript type IDs at all
+/// internally in the module. Additionally, the Subgraph host only uses these to
+/// be compatible with the AssemblyScript runtime, which isn't a concern for us.
+/// For completeness, this should be implemented in the future in case the host
+/// starts requiring these values to be correct.
+pub const TYPE_ID: u32 = 0;
 
 /// The default alignment to use for AssemblyScript allocations.
 ///
@@ -21,158 +25,81 @@ const TODO_TYPE_ID: u32 = 42;
 /// pointers.
 pub const ALIGN: usize = 16;
 
-/// A boxed AssemblyScript object with a value.
+/// A boxed AssemblyScript value.
 ///
-/// This represents values as pointers into an AssemblyScript object's data and
-/// is FFI safe.
+/// This represents values as pointers into an AssemblyScript wrapped values
+/// which are preceeded by an object header and are FFI safe.
 #[repr(transparent)]
-pub struct AscObject<T> {
-    data: NonNull<u8>,
-    _marker: PhantomData<*const T>,
+pub struct AscBox<T>
+where
+    T: AscBoxed + ?Sized,
+{
+    data: NonNull<T::Target>,
 }
 
-impl<T> AscObject<T> {
+/// A boxed value.
+///
+/// This trait is used internally to specialize AssemblyScript boxed value
+/// implementations in order to support unsized types without requiring DSTs
+/// (which are not FFI safe).
+///
+/// # Safety
+///
+/// This trait is an implementation detail of [`AscBox`] and should not be
+/// implemented. That being said, implementors of this trait need to guarantee
+/// a couple of things:
+/// - A [`AscBox`] value of `Self` points to a `Self::Target`. For sized types,
+///   this means `Self::Target = Self` and for arrays, this means `Self::Target`
+///   is the array item (so `[T]::Target = T`).
+/// - That `AscBox` is transmutable to `&Self::Ref`.
+pub unsafe trait AscBoxed {
+    type Target: Sized;
+    type Ref: Sized;
+}
+
+unsafe impl<T> AscBoxed for T
+where
+    T: Sized,
+{
+    type Target = T;
+    type Ref = AscRef<T>;
+}
+
+unsafe impl<T> AscBoxed for [T]
+where
+    T: Sized,
+{
+    type Target = T;
+    type Ref = AscSlice<T>;
+}
+
+impl<T> AscBox<T> {
     /// Creates a new boxed AssemblyScript value.
     pub fn new(value: T) -> Self {
         let data = unsafe {
-            let data = alloc_object(TODO_TYPE_ID, Layout::new::<T>());
-            data.cast::<T>().as_ptr().write(value);
+            let data = alloc_box::<T>(TYPE_ID, 1);
+            data.as_ptr().write(value);
             data
         };
 
-        Self {
-            data,
-            _marker: PhantomData,
-        }
-    }
-
-    /// Returns a reference to the inner data.
-    pub fn data(&self) -> &AscValue<T> {
-        // SAFETY: data points to a valid, aligned and initialized value.
-        // Additionally, `AscRef` is a transparent wrapper around `T`.
-        unsafe { &*self.data.as_ptr().cast() }
+        Self { data }
     }
 }
 
-impl<T> Borrow<AscValue<T>> for AscObject<T> {
-    fn borrow(&self) -> &AscValue<T> {
-        self.data()
-    }
-}
-
-impl<T> Clone for AscObject<T>
-where
-    T: Clone,
-{
-    fn clone(&self) -> Self {
-        self.data().to_owned()
-    }
-}
-
-impl<T> Debug for AscObject<T>
-where
-    T: Debug,
-{
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_tuple("AscObject")
-            .field(&self.data().inner)
-            .finish()
-    }
-}
-
-impl<T> Drop for AscObject<T> {
-    fn drop(&mut self) {
-        unsafe {
-            ptr::drop_in_place(self.data.as_ptr().cast::<T>());
-            dealloc_object(self.data);
-        }
-    }
-}
-
-/// A nullable boxed AssemblyScript object.
-#[repr(transparent)]
-pub struct AscNullableObject<T> {
-    data: *mut u8,
-    _marker: PhantomData<*const T>,
-}
-
-impl<T> AscNullableObject<T> {
-    /// Returns a reference to the data if it is non-null.
-    pub fn data(&self) -> Option<&AscValue<T>> {
-        if self.data.is_null() {
-            return None;
-        }
-
-        // SAFETY: data points to a valid, aligned and initialized value.
-        // Additionally, `AscValue` is a transparent wrapper around `T`.
-        Some(unsafe { &*self.data.cast() })
-    }
-}
-
-impl<T> Drop for AscNullableObject<T> {
-    fn drop(&mut self) {
-        if let Some(data) = NonNull::new(self.data) {
-            drop(AscObject {
-                data,
-                _marker: self._marker,
-            })
-        }
-    }
-}
-
-/// A reference to an AssemblyScript object.
-#[repr(transparent)]
-pub struct AscValue<T> {
-    inner: T,
-}
-
-impl<T> Debug for AscValue<T>
-where
-    T: Debug,
-{
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_tuple("AscRef").field(&self.inner).finish()
-    }
-}
-
-impl<T> Deref for AscValue<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
-impl<T> ToOwned for AscValue<T>
-where
-    T: Clone,
-{
-    type Owned = AscObject<T>;
-
-    fn to_owned(&self) -> Self::Owned {
-        AscObject::new(self.inner.clone())
-    }
-}
-
-/// A boxed AssemblyScript array.
-///
-/// This is largely equivalent to an `AscObject<[T]>`. The additional type is
-/// needed in order to specialize `Drop` implementations for the array items.
-#[repr(transparent)]
-pub struct AscArray<T> {
-    data: NonNull<u8>,
-    _marker: PhantomData<*const [T]>,
-}
-
-impl<T> AscArray<T> {
-    /// Creates a new boxed array value for the exact sized iterator.
-    pub fn new<I>(items: I) -> Self
+impl<T> AscBox<[T]> {
+    /// Creates a new boxed array value for a slice of T.
+    pub fn from_slice(items: &[T]) -> Self
     where
-        I: IntoIterator<Item = T>,
-        I::IntoIter: ExactSizeIterator,
+        T: Copy,
     {
-        let items = items.into_iter();
-        Self::with_len(items.len(), items)
+        // SAFETY: `T` is copy, and the pointers are non-overalapping.
+        let data = unsafe {
+            let data = alloc_box::<T>(TYPE_ID, items.len());
+            ptr::copy_nonoverlapping(items.as_ptr(), data.as_ptr(), items.len());
+            data
+        };
+
+        Self { data }
     }
 
     /// Creates a new boxed array value with the specified length.
@@ -181,16 +108,11 @@ impl<T> AscArray<T> {
     ///
     /// Panics if the iterator is not of the specified length.
     pub fn with_len(len: usize, items: impl IntoIterator<Item = T>) -> Self {
-        let layout = match Layout::array::<T>(len) {
-            Ok(value) => value,
-            Err(_) => alloc::handle_alloc_error(Layout::new::<T>()),
-        };
         let mut items = items.into_iter();
-
         let data = unsafe {
-            let data = alloc_object(TODO_TYPE_ID, layout);
+            let data = alloc_box::<T>(TYPE_ID, len);
             let drop_array_and_panic = |count| {
-                drop_array::<T>(count, data);
+                drop_box::<T>(data, count);
                 panic!("iterator does not match specified length");
             };
 
@@ -211,76 +133,182 @@ impl<T> AscArray<T> {
             data
         };
 
-        Self {
-            data,
-            _marker: PhantomData,
-        }
+        Self { data }
     }
+}
 
-    /// Returns the array as a slice.
-    pub fn data(&self) -> &AscSlice<T> {
-        // SAFETY: `data` points to an allocated array where all elements are
-        // initialized - this is ensured as part of its construction.
-        // Additionally, `AscSlice` is a transparent wrapper around `[T; 0]`.
+impl<T> AscBox<T>
+where
+    T: AscBoxed + ?Sized,
+{
+    /// Returns a reference to the AssemblyScript value.
+    pub fn as_asc_ref(&self) -> &T::Ref {
+        // SAFETY: [`AscBoxed`] trait implementation guarantees that `self` is
+        // transmutable to `&T::Ref`.
         unsafe { &*self.data.as_ptr().cast() }
     }
-}
 
-impl<T> Borrow<AscSlice<T>> for AscArray<T> {
-    fn borrow(&self) -> &AscSlice<T> {
-        self.data()
+    /// Returns a pointer to the AssemblyScript value reference.
+    pub fn as_ptr(&self) -> *const T::Ref {
+        self.as_asc_ref() as _
     }
 }
 
-impl<T> Clone for AscArray<T>
+impl<T> Borrow<AscRef<T>> for AscBox<T> {
+    fn borrow(&self) -> &AscRef<T> {
+        self.as_asc_ref()
+    }
+}
+
+impl<T> Borrow<AscSlice<T>> for AscBox<[T]> {
+    fn borrow(&self) -> &AscSlice<T> {
+        self.as_asc_ref()
+    }
+}
+
+impl<T> Clone for AscBox<T>
 where
     T: Clone,
 {
     fn clone(&self) -> Self {
-        self.data().to_owned()
+        self.as_asc_ref().to_owned()
     }
 }
 
-impl<T> Debug for AscArray<T>
+impl<T> Clone for AscBox<[T]>
+where
+    T: Clone,
+{
+    fn clone(&self) -> Self {
+        self.as_asc_ref().to_owned()
+    }
+}
+
+impl<T> Debug for AscBox<T>
 where
     T: Debug,
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_tuple("AscArray")
-            .field(&self.data().as_slice())
+        f.debug_tuple("AscBox").field(&self.as_asc_ref().inner).finish()
+    }
+}
+
+impl<T> Debug for AscBox<[T]>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_tuple("AscBox")
+            .field(&self.as_asc_ref().as_slice())
             .finish()
     }
 }
 
-impl<T> Drop for AscArray<T> {
+impl<T> Drop for AscBox<T>
+where
+    T: AscBoxed + ?Sized,
+{
     fn drop(&mut self) {
-        // SAFETY: `data` is a valid array pointer and is fully initialized by
-        // construction.
         unsafe {
-            drop_array::<T>(self.data().len(), self.data);
+            // SAFETY: `data` is a valid data pointer and outlives the header
+            // reference we are creating here.
+            let len = {
+                let header = AscHeader::for_data(self.data.as_ptr());
+                header.len::<T::Target>()
+            };
+            drop_box(self.data, len);
         }
     }
 }
 
-/// Implementation helper for dropping an array with `count` initialized items.
-///
-/// # Safety
-///
-/// Callers must ensure two things:
-/// - This is only ever called on data array pointers allocated with
-///   [`alloc_object`] with an array layout.
-/// - That `count` items from the array are initialized.
-unsafe fn drop_array<T>(count: usize, data: NonNull<u8>) {
-    if mem::needs_drop::<T>() {
-        for i in 0..count {
-            let item = data.as_ptr().cast::<T>().add(i);
-            ptr::drop_in_place(item);
+impl<T> FromIterator<T> for AscBox<[T]> {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+    {
+        let iter = iter.into_iter();
+        let (len, max_len) = iter.size_hint();
+        if Some(len) != max_len {
+            panic!("cannot collect iterator with unknown size");
         }
+
+        Self::with_len(len, iter)
     }
-    dealloc_object(data);
 }
 
-/// A reference to an AssemblyScript object.
+/// A nullable boxed AssemblyScript value.
+///
+/// This type is largely equivalent to an `Option<AscBox>` but is FFI-safe.
+#[repr(transparent)]
+pub struct AscNullableBox<T>
+where
+    T: AscBoxed + ?Sized,
+{
+    data: *mut T::Target,
+}
+
+impl<T> AscNullableBox<T>
+where
+    T: AscBoxed + ?Sized,
+{
+    /// Returns a reference to the data if it is non-null.
+    pub fn as_asc_ref(&self) -> Option<&T::Ref> {
+        if self.data.is_null() {
+            return None;
+        }
+
+        // SAFETY: [`AscBoxed`] trait implementation guarantees that `self` is
+        // transmutable to `&T::Ref`.
+        Some(unsafe { &*self.data.cast() })
+    }
+}
+
+impl<T> Drop for AscNullableBox<T>
+where
+    T: AscBoxed + ?Sized,
+{
+    fn drop(&mut self) {
+        if let Some(data) = NonNull::new(self.data) {
+            drop(AscBox::<T> { data })
+        }
+    }
+}
+
+/// A reference to an AssemblyScript value.
+#[repr(transparent)]
+pub struct AscRef<T> {
+    inner: T,
+}
+
+impl<T> Debug for AscRef<T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_tuple("AscRef").field(&self.inner).finish()
+    }
+}
+
+impl<T> Deref for AscRef<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl<T> ToOwned for AscRef<T>
+where
+    T: Clone,
+{
+    type Owned = AscBox<T>;
+
+    fn to_owned(&self) -> Self::Owned {
+        AscBox::new(self.inner.clone())
+    }
+}
+
+/// A reference to an AssemblyScript array value.
 #[repr(transparent)]
 pub struct AscSlice<T> {
     // FIXME(nlordell): Slices are technically "unsized" types. Unfortunately,
@@ -294,14 +322,12 @@ impl<T> AscSlice<T> {
     pub fn as_slice(&self) -> &[T] {
         let this = self.inner.as_ptr();
 
-        // SAFETY: `data` is a valid object data pointer and outlives the header
+        // SAFETY: `data` is a valid data pointer and outlives the header
         // reference we are creating here.
-        let size = unsafe {
-            let data = NonNull::new_unchecked(this as *mut T as *mut u8);
-            let header = AscHeader::for_data(data);
-            header.rt_size as usize
+        let len = unsafe {
+            let header = AscHeader::for_data(this);
+            header.len::<T>()
         };
-        let len = size / mem::size_of::<T>();
 
         // SAFETY: `data` points to an allocated array where all elements are
         // initialized - this is ensured as part of its construction.
@@ -330,10 +356,10 @@ impl<T> ToOwned for AscSlice<T>
 where
     T: Clone,
 {
-    type Owned = AscArray<T>;
+    type Owned = AscBox<[T]>;
 
     fn to_owned(&self) -> Self::Owned {
-        AscArray::new(self.as_slice().iter().cloned())
+        self.as_slice().iter().cloned().collect()
     }
 }
 
@@ -353,88 +379,114 @@ impl AscHeader {
     /// # Safety
     ///
     /// Callers must ensure two things:
-    /// - This is only ever called on data pointers allocated with
-    ///   [`alloc_object`].
+    /// - This is only called on data pointers allocated with [`alloc_box`].
     /// - That the reference to the header does not outlive the data pointer. In
-    ///   particular, until [`dealloc_object`] is called.
-    unsafe fn for_data<'a>(data: NonNull<u8>) -> &'a AscHeader {
+    ///   particular, until [`drop_box`] is called.
+    unsafe fn for_data<'a, T>(data: *const T) -> &'a AscHeader {
         let header_size = mem::size_of::<AscHeader>();
 
-        // SAFETY: `data` was allocated with [`alloc_object`] and so is
-        // prepended with a header. Therefore, doing this pointer arithmetic is
-        // valid and will be well-aligned. Additionally, we initialized all
-        // header fields so it is safe to take a reference to it.
-        &*data.as_ptr().sub(header_size).cast::<AscHeader>()
+        // SAFETY: `data` was allocated with [`alloc_box`] and so is prepended
+        // with a header. Therefore, doing this pointer arithmetic is valid and
+        // will be well-aligned. Additionally, we initialized all header fields
+        // so it is safe to take a reference to it.
+        &*data.cast::<u8>().sub(header_size).cast::<AscHeader>()
+    }
+
+    /// Returns the length of items followed by this header for the specified
+    /// type.
+    fn len<T>(&self) -> usize {
+        (self.rt_size as usize) / mem::size_of::<T>()
     }
 }
 
-/// Allocates an AssemblyScript object and returns a mutable reference to the
-/// object header, as well as a pointer to **uninitialized** data for the
-/// specified layout.
+/// Allocates an AssemblyScript value and returns a pointer to **uninitialized**
+/// data for the specified layout.
 ///
-/// # Safety
-///
-/// ?
-unsafe fn alloc_object(type_id: u32, data_layout: Layout) -> NonNull<u8> {
+/// Data values allocated this way are always proceeded in memory by a valid
+/// [`AscHeader`].
+fn alloc_box<T>(type_id: u32, len: usize) -> NonNull<T> {
     let header_size = mem::size_of::<AscHeader>();
-
-    // SAFETY: `AscHeader` has a non-zero size and the default alignment
-    // is valid and doesn't cause size overflows.
-    let layout = Layout::from_size_align_unchecked(header_size, ALIGN);
-
-    // NOTE: We pad the layout to a large default alignment ensuring that:
-    // - None of the header fields are mis-aligned
-    // - The data that comes after the header is also not mis-aligned
-    let layout = layout.pad_to_align();
-
-    let (layout, offset) = match layout.extend(data_layout) {
+    let data_layout = match Layout::array::<T>(len) {
         Ok(value) => value,
-        Err(_) => alloc::handle_alloc_error(data_layout),
+        Err(_) => alloc::handle_alloc_error(Layout::new::<T>()),
     };
 
-    // NOTE: Pad the final layout to ensure C ABI compatibility.
-    let layout = layout.pad_to_align();
+    // NOTE: We create a layout that guarantees:
+    // - None of the header fields are mis-aligned
+    // - The data that comes after the header is also not mis-aligned
+    //
+    // layout:
+    // +---------+--------+-----------
+    // | padding | header | data ...
+    // +---------+--------+-----------
+    //                    ^
+    //                  offset (align(16))
+    let (layout, offset) = {
+        // SAFETY: `AscHeader` has a non-zero size and the default alignment
+        // is valid and doesn't cause size overflows.
+        let layout =
+            unsafe { Layout::from_size_align_unchecked(header_size, ALIGN).pad_to_align() };
+
+        let (layout, offset) = match layout.extend(data_layout) {
+            Ok(value) => value,
+            Err(_) => alloc::handle_alloc_error(data_layout),
+        };
+
+        // NOTE: Pad the final layout to ensure C ABI compatibility.
+        let layout = layout.pad_to_align();
+        (layout, offset)
+    };
 
     // SAFETY: Layout is guaranteed to have a non-zero size because of the
     // object header.
-    let root = alloc::alloc(layout);
+    let root = unsafe { alloc::alloc(layout) };
     if root.is_null() {
         alloc::handle_alloc_error(layout);
     }
 
     // SAFETY: Pointer was just allocated so it is valid, and is guaranteed to
     // be well-aligned because of our padding strategy.
-    let header = root.add(offset - header_size).cast::<AscHeader>();
-    ptr::addr_of_mut!((*header).mm_info).write(layout.size());
-    ptr::addr_of_mut!((*header).gc_info).write(layout.align());
-    ptr::addr_of_mut!((*header).gc_info2).write(offset);
-    ptr::addr_of_mut!((*header).rt_id).write(type_id);
-    ptr::addr_of_mut!((*header).rt_size).write(data_layout.size() as _);
+    unsafe {
+        let header = root.add(offset - header_size).cast::<AscHeader>();
+        ptr::addr_of_mut!((*header).mm_info).write(layout.size());
+        ptr::addr_of_mut!((*header).gc_info).write(layout.align());
+        ptr::addr_of_mut!((*header).gc_info2).write(offset);
+        ptr::addr_of_mut!((*header).rt_id).write(type_id);
+        ptr::addr_of_mut!((*header).rt_size).write(data_layout.size() as _);
+    }
 
     // SAFETY: Data pointer is valid, non-null and well-aligned.
-    NonNull::new_unchecked(root.add(offset))
+    unsafe { NonNull::new_unchecked(root.add(offset).cast()) }
 }
 
-/// Deallocates an AssemblyScript object created with the [`alloc_object`]
-/// function.
+/// Drops an AssemblyScript box pointer created with the [`alloc_box`] function.
 ///
 /// # Safety
 ///
-/// This method only works for data pointers allocated with [`alloc_object`].
-unsafe fn dealloc_object(data: NonNull<u8>) {
+/// Callers must ensure two things:
+/// - This is only ever called on data pointers allocated with [`alloc_box`].
+/// - That `len` items pointed to by `data` are initialized.
+unsafe fn drop_box<T>(data: NonNull<T>, len: usize) {
     // SAFETY: `data` is a valid object (ensured by the caller) and the header
     // reference does not outlive the data pointer, as it is dropped before we
     // actually de-allocate the pointer.
     let (size, align, offset) = {
-        let header = AscHeader::for_data(data);
+        let header = AscHeader::for_data(data.as_ptr());
         (header.mm_info, header.gc_info, header.gc_info2)
     };
+
+    if mem::needs_drop::<T>() {
+        for i in 0..len {
+            let item = data.as_ptr().add(i);
+            ptr::drop_in_place(item);
+        }
+    }
 
     // SAFETY: Layout is valid because we used it for allocation!
     let layout = Layout::from_size_align_unchecked(size, align);
 
     // SAFETY: The root pointer is valid as that was the original allocation
     // with the layout that we just computed.
-    let root = data.as_ptr().sub(offset);
+    let root = data.cast::<u8>().as_ptr().sub(offset);
     alloc::dealloc(root, layout)
 }
