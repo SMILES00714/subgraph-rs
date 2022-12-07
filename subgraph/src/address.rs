@@ -2,10 +2,7 @@
 
 use crate::{
     conv,
-    ffi::{
-        str::AscString,
-        sys::{self, AscAddress},
-    },
+    ffi::{str::AscString, sys, types::AscAddress},
 };
 use std::{
     convert::Infallible,

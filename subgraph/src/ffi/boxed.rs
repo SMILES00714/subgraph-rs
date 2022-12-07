@@ -153,14 +153,6 @@ where
         self.as_asc_ref() as _
     }
 
-    /// Returns the AssemblyScript slice as a borrowed copy-on-write pointer.
-    pub fn borrowed(&self) -> AscCow<T>
-    where
-        T::Ref: ToOwned<Owned = Self>,
-    {
-        Cow::Borrowed(self.as_asc_ref())
-    }
-
     /// Returns the AssemblyScript slice as an owned copy-on-write pointer.
     pub fn owned(self) -> AscCow<'static, T>
     where

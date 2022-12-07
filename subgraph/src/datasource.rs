@@ -3,12 +3,12 @@
 
 use crate::{
     address::Address,
+    entity::{Entity, EntityExt as _},
     ffi::{str::AscString, sys, value::AscArray},
-    value::{Map, MapExt as _},
 };
 
 /// Data source context.
-pub type Context = Map;
+pub type Context = Entity;
 
 /// Returns the address of the current data source.
 pub fn address() -> Address {
@@ -19,7 +19,7 @@ pub fn address() -> Address {
 /// Returns the context of the current data source.
 pub fn context() -> Context {
     let raw = unsafe { &*sys::data_source__context() };
-    Map::from_raw(raw)
+    Entity::from_raw(raw)
 }
 
 /// Returns the network name of the current data source.

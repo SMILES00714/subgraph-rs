@@ -2,9 +2,9 @@
 
 use super::{
     boxed::{AscBox, AscNullableBox, AscRef},
-    buf::AscTypedArray,
     num::{AscBigDecimal, AscBigInt},
     str::{AscStr, AscString},
+    types::{AscAddress, AscBytes},
 };
 use std::{
     mem::{self, ManuallyDrop},
@@ -107,253 +107,6 @@ impl<T> AscMapEntry<T> {
     }
 }
 
-/// A Subgraph value kind.
-#[allow(clippy::manual_non_exhaustive, dead_code)]
-#[derive(Clone, Copy, Debug)]
-#[non_exhaustive]
-#[repr(u32)]
-enum AscValueKind {
-    String = 0,
-    Int = 1,
-    BigDecimal = 2,
-    Bool = 3,
-    Array = 4,
-    Null = 5,
-    Bytes = 6,
-    BigInt = 7,
-    #[doc(hidden)]
-    _NonExhaustive,
-}
-
-/// Subgraph value data payload.
-#[repr(C)]
-union AscValuePayload {
-    string: ManuallyDrop<AscString>,
-    int: i32,
-    bigdecimal: ManuallyDrop<AscBox<AscBigDecimal>>,
-    bool: bool,
-    array: ManuallyDrop<AscBox<AscArray<AscBox<AscValue>>>>,
-    null: u64,
-    bytes: ManuallyDrop<AscBox<AscTypedArray<u8>>>,
-    bigint: ManuallyDrop<AscBox<AscBigInt>>,
-}
-
-/// An enum representing data held in a Subgraph value.
-pub enum AscValueData<'a> {
-    String(&'a AscStr),
-    Int(i32),
-    BigDecimal(&'a AscRef<AscBigDecimal>),
-    Bool(bool),
-    Array(&'a AscRef<AscArray<AscBox<AscValue>>>),
-    Null,
-    Bytes(&'a AscRef<AscTypedArray<u8>>),
-    BigInt(&'a AscRef<AscBigInt>),
-}
-
-/// An AssemblyScript Subgraph key-value map.
-pub type AscValueMap = AscMap<AscBox<AscValue>>;
-
-/// An AssemblyScript Subgraph value.
-#[repr(C)]
-pub struct AscValue {
-    kind: AscValueKind,
-    data: AscValuePayload,
-}
-
-impl AscValue {
-    /// Creates a new string value.
-    pub fn string(value: AscString) -> AscBox<Self> {
-        AscBox::new(Self {
-            kind: AscValueKind::String,
-            data: AscValuePayload {
-                string: ManuallyDrop::new(value),
-            },
-        })
-    }
-
-    /// Creates a new integer value.
-    pub fn int(value: i32) -> AscBox<Self> {
-        AscBox::new(Self {
-            kind: AscValueKind::Int,
-            data: AscValuePayload { int: value },
-        })
-    }
-
-    /// Creates a new big decimal value.
-    pub fn bigdecimal(value: AscBox<AscBigDecimal>) -> AscBox<Self> {
-        AscBox::new(Self {
-            kind: AscValueKind::BigDecimal,
-            data: AscValuePayload {
-                bigdecimal: ManuallyDrop::new(value),
-            },
-        })
-    }
-
-    /// Creates a new boolean value.
-    pub fn bool(value: bool) -> AscBox<Self> {
-        AscBox::new(Self {
-            kind: AscValueKind::Bool,
-            data: AscValuePayload { bool: value },
-        })
-    }
-
-    /// Creates a new array value.
-    pub fn array(value: AscBox<AscArray<AscBox<AscValue>>>) -> AscBox<Self> {
-        AscBox::new(Self {
-            kind: AscValueKind::Array,
-            data: AscValuePayload {
-                array: ManuallyDrop::new(value),
-            },
-        })
-    }
-
-    /// Creates a new null value.
-    pub fn null() -> AscBox<Self> {
-        AscBox::new(Self {
-            kind: AscValueKind::Null,
-            data: AscValuePayload { null: 0 },
-        })
-    }
-
-    /// Creates a new bytes value.
-    pub fn bytes(value: AscBox<AscTypedArray<u8>>) -> AscBox<Self> {
-        AscBox::new(Self {
-            kind: AscValueKind::Bytes,
-            data: AscValuePayload {
-                bytes: ManuallyDrop::new(value),
-            },
-        })
-    }
-
-    /// Creates a new big integer value.
-    pub fn bigint(value: AscBox<AscBigInt>) -> AscBox<Self> {
-        AscBox::new(Self {
-            kind: AscValueKind::BigInt,
-            data: AscValuePayload {
-                bigint: ManuallyDrop::new(value),
-            },
-        })
-    }
-
-    /// Returns the inner JSON data for this value.
-    pub fn data(&self) -> AscValueData {
-        unsafe {
-            match self.kind {
-                AscValueKind::String => AscValueData::String(&self.data.string),
-                AscValueKind::Int => AscValueData::Int(self.data.int),
-                AscValueKind::BigDecimal => {
-                    AscValueData::BigDecimal(self.data.bigdecimal.as_asc_ref())
-                }
-                AscValueKind::Bool => AscValueData::Bool(self.data.bool),
-                AscValueKind::Array => AscValueData::Array(self.data.array.as_asc_ref()),
-                AscValueKind::Null => AscValueData::Null,
-                AscValueKind::Bytes => AscValueData::Bytes(self.data.bytes.as_asc_ref()),
-                AscValueKind::BigInt => AscValueData::BigInt(self.data.bigint.as_asc_ref()),
-                _ => panic!("unknown JSON value kind {:#x}", self.kind as u32),
-            }
-        }
-    }
-}
-
-impl Drop for AscValue {
-    fn drop(&mut self) {
-        // SAFETY: By construction, we are using the right union variant and we
-        // only ever drop when the container is dropping, meening the field will
-        // no longer be accessed.
-        unsafe {
-            match self.kind {
-                AscValueKind::String => ManuallyDrop::drop(&mut self.data.string),
-                AscValueKind::BigDecimal => ManuallyDrop::drop(&mut self.data.bigdecimal),
-                AscValueKind::Array => ManuallyDrop::drop(&mut self.data.array),
-                AscValueKind::Bytes => ManuallyDrop::drop(&mut self.data.bytes),
-                AscValueKind::BigInt => ManuallyDrop::drop(&mut self.data.bigint),
-                _ => (),
-            }
-        }
-    }
-}
-
-/// The kind of JSON value.
-#[allow(clippy::manual_non_exhaustive, dead_code)]
-#[derive(Clone, Copy, Debug)]
-#[non_exhaustive]
-#[repr(u32)]
-enum AscJsonValueKind {
-    Null = 0,
-    Bool = 1,
-    Number = 2,
-    String = 3,
-    Array = 4,
-    Object = 5,
-    #[doc(hidden)]
-    _NonExhaustive,
-}
-
-/// JSON value data payload.
-#[repr(C)]
-union AscJsonValuePayload {
-    null: u64,
-    bool: bool,
-    number: ManuallyDrop<AscString>,
-    string: ManuallyDrop<AscString>,
-    array: ManuallyDrop<AscBox<AscJsonArray>>,
-    object: ManuallyDrop<AscBox<AscJsonObject>>,
-}
-
-/// A JSON array.
-type AscJsonArray = AscArray<AscBox<AscJsonValue>>;
-
-/// A JSON object.
-type AscJsonObject = AscMap<AscBox<AscJsonValue>>;
-
-/// An enum representing data held in a JSON value.
-pub enum AscJsonValueData<'a> {
-    Null,
-    Bool(bool),
-    Number(&'a AscStr),
-    String(&'a AscStr),
-    Array(&'a AscRef<AscJsonArray>),
-    Object(&'a AscRef<AscJsonObject>),
-}
-
-/// An AssemblyScript JSON value.
-#[repr(C)]
-pub struct AscJsonValue {
-    kind: AscJsonValueKind,
-    data: AscJsonValuePayload,
-}
-
-impl AscJsonValue {
-    /// Returns the inner JSON data for this value.
-    pub fn data(&self) -> AscJsonValueData {
-        unsafe {
-            match self.kind {
-                AscJsonValueKind::Null => AscJsonValueData::Null,
-                AscJsonValueKind::Bool => AscJsonValueData::Bool(self.data.bool),
-                AscJsonValueKind::Number => AscJsonValueData::Number(&self.data.string),
-                AscJsonValueKind::String => AscJsonValueData::String(&self.data.string),
-                AscJsonValueKind::Array => AscJsonValueData::Array(self.data.array.as_asc_ref()),
-                AscJsonValueKind::Object => AscJsonValueData::Object(self.data.object.as_asc_ref()),
-                _ => panic!("unknown JSON value kind {:#x}", self.kind as u32),
-            }
-        }
-    }
-}
-
-impl Drop for AscJsonValue {
-    fn drop(&mut self) {
-        // SAFETY: By construction, we are using the right union variant and we
-        // only ever drop when the container is dropping, meening the field will
-        // no longer be accessed.
-        match self.kind {
-            AscJsonValueKind::String => unsafe { ManuallyDrop::drop(&mut self.data.string) },
-            AscJsonValueKind::Array => unsafe { ManuallyDrop::drop(&mut self.data.array) },
-            AscJsonValueKind::Object => unsafe { ManuallyDrop::drop(&mut self.data.object) },
-            _ => (),
-        }
-    }
-}
-
 /// An AssemblyScript result type.
 #[repr(C)]
 pub struct AscResult<T, E> {
@@ -370,5 +123,178 @@ impl<T, E> AscResult<T, E> {
             (None, Some(err)) => Err(err),
             _ => panic!("inconsistent result"),
         }
+    }
+}
+
+/// Generate code for a tagged union.
+macro_rules! asc_tagged_union {
+    (
+        $(#[$attr:meta])*
+        $value:ident, $kind:ident, $payload:ident, $data:ident {$(
+            $variant:ident , $field:ident ($($type:tt)*) = $tag:literal ,
+
+        )*}
+    ) => {
+        $(#[$attr])*
+        #[repr(C)]
+        pub struct $value {
+            kind: $kind,
+            data: $payload,
+        }
+
+        #[allow(clippy::manual_non_exhaustive, dead_code)]
+        #[derive(Clone, Copy, Debug)]
+        #[non_exhaustive]
+        #[repr(u32)]
+        enum $kind {
+            $(
+                $variant = $tag,
+            )*
+            #[doc(hidden)]
+            _NonExhaustive,
+        }
+
+        #[repr(C)]
+        union $payload {
+            $(
+                $field: asc_tagged_union_field!(field: $($type)*),
+            )*
+            _padding: u64,
+        }
+
+        pub enum $data<'a> {
+            $(
+                $variant(asc_tagged_union_field!(ref 'a: $($type)*)),
+            )*
+        }
+
+        #[allow(dead_code, unused_variables)]
+        impl $value {
+            $(
+                /// Creates a new value.
+                pub fn $field(
+                    value: asc_tagged_union_field!(owned: $($type)*),
+                ) -> AscBox<Self> {
+                    AscBox::new(Self {
+                        kind: $kind::$variant,
+                        data: $payload {
+                            $field: asc_tagged_union_field!(new(value): $($type)*),
+                        },
+                    })
+                }
+            )*
+
+            /// Returns a reference to the inner data for this value.
+            pub fn data(&self) -> $data {
+                match self.kind {
+                    $(
+                        $kind::$variant => $data::$variant(
+                            asc_tagged_union_field!(data(self.data.$field): $($type)*),
+                        ),
+                    )*
+                    _ => panic!("unknown value kind {:#x}", self.kind as u32),
+                }
+            }
+        }
+
+        impl Drop for $value {
+            fn drop(&mut self) {
+                // SAFETY: By construction, we are using the right union variant
+                // and we only ever drop when the container is dropping, meening
+                // the field will no longer be accessed.
+                match self.kind {
+                    $(
+                        $kind::$variant =>
+                            asc_tagged_union_field!(drop(self.data.$field): $($type)*),
+                    )*
+                    _ => ()
+                }
+            }
+        }
+    };
+}
+
+#[rustfmt::skip]
+macro_rules! asc_tagged_union_field {
+    (owned: null) => { () };
+    (ref $a:lifetime: null) => { () };
+    (field: null) => { u64 };
+    (new($f:expr): null) => { 0 };
+    (data($f:expr): null) => { () };
+    (drop($f:expr): null) => { () };
+
+    (owned: string) => { AscString };
+    (ref $a:lifetime: string) => { &$a AscStr };
+    (field: string) => { ManuallyDrop<AscString> };
+    (new($f:expr): string) => { ManuallyDrop::new($f) };
+    (data($f:expr): string) => { unsafe { $f.as_asc_str() } };
+    (drop($f:expr): string) => { unsafe { ManuallyDrop::drop(&mut $f) } };
+
+    (owned: value $type:ty) => { $type };
+    (ref $a:lifetime: value $type:ty) => { $type };
+    (field: value $type:ty) => { $type };
+    (new($f:expr): value $type:ty) => { $f };
+    (data($f:expr): value $type:ty) => { unsafe { $f } };
+    (drop($f:expr): value $type:ty) => { () };
+
+    (owned: boxed $type:ty) => { AscBox<$type> };
+    (ref $a:lifetime: boxed $type:ty) => { &$a AscRef<$type> };
+    (field: boxed $type:ty) => { ManuallyDrop<AscBox<$type>> };
+    (new($f:expr): boxed $type:ty) => { ManuallyDrop::new($f) };
+    (data($f:expr): boxed $type:ty) => { unsafe { $f.as_asc_ref() } };
+    (drop($f:expr): boxed $type:ty) => { unsafe { ManuallyDrop::drop(&mut $f) } };
+}
+
+/// An AssemblyScript Subgraph key-value map.
+pub type AscEntity = AscMap<AscBox<AscEntityValue>>;
+
+asc_tagged_union! {
+    /// An AssemblyScript JSON dynamic value.
+    AscEntityValue,
+    AscEntityValueKind,
+    AscEntityValuePayload,
+    AscEntityValueData {
+        String, string (string) = 0,
+        Int, int (value i32) = 1,
+        BigDecimal, bigdecimal (boxed AscBigDecimal) = 2,
+        Bool, bool (value bool) = 3,
+        Array, array (boxed AscArray<AscBox<AscEntityValue>>) = 4,
+        Null, null (null) = 5,
+        Bytes, bytes (boxed AscBytes) = 6,
+        BigInt, bigint (boxed AscBigInt) = 7,
+    }
+}
+
+asc_tagged_union! {
+    /// An AssemblyScript JSON dynamic value.
+    AscJsonValue,
+    AscJsonValueKind,
+    AscJsonValuePayload,
+    AscJsonValueData {
+        Null, null (null) = 0,
+        Bool, bool (value bool) = 1,
+        Number, number (string) = 2,
+        String, string (string) = 3,
+        Array, array (boxed AscArray<AscBox<AscJsonValue>>) = 4,
+        Object, object (boxed AscMap<AscBox<AscJsonValue>>) = 5,
+    }
+}
+
+asc_tagged_union! {
+    /// An AssemblyScript Ethereum dynamic value.
+    AscEthereumValue,
+    AscEthereumValueKind,
+    AscEthereumValuePayload,
+    AscEthereumValueData {
+        Address, address (boxed AscAddress) = 0,
+        FixedBytes, fixedbytes (boxed AscBytes) = 1,
+        Bytes, bytes (boxed AscBytes) = 2,
+        Int, int (boxed AscBigInt) = 3,
+        Uint, uint (boxed AscBigInt) = 4,
+        Bool, bool (value bool) = 5,
+        String, string (string) = 6,
+        FixedArray, fixedarray (boxed AscArray<AscBox<AscEthereumValue>>) = 7,
+        Array, array (boxed AscArray<AscBox<AscEthereumValue>>) = 8,
+        Tuple, tuple (null) = 9,
     }
 }

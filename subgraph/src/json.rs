@@ -34,7 +34,7 @@ impl Value {
     /// Creates a new instance from a raw JSON value.
     fn from_raw(raw: &AscRef<AscJsonValue>) -> Self {
         match raw.data() {
-            AscJsonValueData::Null => Self::Null,
+            AscJsonValueData::Null(()) => Self::Null,
             AscJsonValueData::Bool(value) => Self::Bool(value),
             AscJsonValueData::Number(value) => {
                 Self::Number(Number(Cow::Owned(value.to_string_lossy())))

@@ -7,11 +7,11 @@ pub mod address;
 pub mod conv;
 pub mod crypto;
 pub mod datasource;
+pub mod entity;
 pub mod exports;
 mod ffi;
 pub mod json;
 pub mod log;
 pub mod num;
-pub mod value;
 
 pub use indexmap;

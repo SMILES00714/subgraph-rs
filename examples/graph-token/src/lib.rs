@@ -115,15 +115,15 @@ pub extern "C" fn call_me() {
     //    "example template",
     //    ["foo", "bar"],
     //    &subgraph::indexmap::indexmap! {
-    //        "foo".to_owned() => subgraph::value::Value::String("bar".to_owned()),
-    //        "number".to_owned() => subgraph::value::Value::Int(42),
+    //        "foo".to_owned() => subgraph::entity::Value::String("bar".to_owned()),
+    //        "number".to_owned() => subgraph::entity::Value::Int(42),
     //        "dec".to_owned() =>
-    //            subgraph::value::Value::BigDecimal(BigDecimal::new(BigInt::temp_new(42))),
-    //        "isGood".to_owned() => subgraph::value::Value::Bool(true),
-    //        "many".to_owned() => subgraph::value::Value::Array(vec![
-    //            subgraph::value::Value::Null,
-    //            subgraph::value::Value::Bytes(vec![1, 2, 3]),
-    //            subgraph::value::Value::BigInt(BigInt::temp_new(-1)),
+    //            subgraph::entity::Value::BigDecimal(BigDecimal::new(BigInt::temp_new(42))),
+    //        "isGood".to_owned() => subgraph::entity::Value::Bool(true),
+    //        "many".to_owned() => subgraph::entity::Value::Array(vec![
+    //            subgraph::entity::Value::Null,
+    //            subgraph::entity::Value::Bytes(vec![1, 2, 3]),
+    //            subgraph::entity::Value::BigInt(BigInt::temp_new(-1)),
     //        ]),
     //    },
     //);

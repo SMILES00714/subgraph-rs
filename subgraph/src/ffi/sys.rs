@@ -4,16 +4,11 @@
 
 use super::{
     boxed::{AscBox, AscRef},
-    buf::AscTypedArray,
     num::{AscBigDecimal, AscBigInt},
     str::{AscStr, AscString},
-    value::{AscArray, AscJsonValue, AscResult, AscValueMap},
+    types::{AscAddress, AscByteArray, AscBytes, AscUint8Array},
+    value::{AscArray, AscEntity, AscJsonValue, AscResult},
 };
-
-pub type AscUint8Array = AscTypedArray<u8>;
-pub type AscByteArray = AscUint8Array;
-pub type AscBytes = AscByteArray;
-pub type AscAddress = AscBytes;
 
 #[link(wasm_import_module = "index")]
 extern "C" {
@@ -34,14 +29,14 @@ extern "C" {
     #[link_name = "dataSource.address"]
     pub fn data_source__address() -> *const AscRef<AscAddress>;
     #[link_name = "dataSource.context"]
-    pub fn data_source__context() -> *const AscRef<AscValueMap>;
+    pub fn data_source__context() -> *const AscRef<AscEntity>;
     #[link_name = "dataSource.create"]
     pub fn data_source__create(name: *const AscStr, params: *const AscRef<AscArray<AscString>>);
     #[link_name = "dataSource.createWithContext"]
     pub fn data_source__create_with_context(
         name: *const AscStr,
         params: *const AscRef<AscArray<AscString>>,
-        context: *const AscRef<AscValueMap>,
+        context: *const AscRef<AscEntity>,
     );
     #[link_name = "dataSource.network"]
     pub fn data_source__network() -> *const AscStr;
