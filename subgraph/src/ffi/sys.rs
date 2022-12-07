@@ -5,14 +5,14 @@
 use super::{
     boxed::{AscBox, AscRef},
     buf::AscTypedArray,
+    num::{AscBigDecimal, AscBigInt},
     str::{AscStr, AscString},
-    value::{AscArray, AscJsonValue, AscResult},
+    value::{AscArray, AscJsonValue, AscResult, AscValueMap},
 };
 
-pub type AscUint8Array = AscRef<AscTypedArray<u8>>;
+pub type AscUint8Array = AscTypedArray<u8>;
 pub type AscByteArray = AscUint8Array;
 pub type AscBytes = AscByteArray;
-pub type AscBigInt = AscBytes;
 pub type AscAddress = AscBytes;
 
 #[link(wasm_import_module = "index")]
@@ -25,18 +25,31 @@ extern "C" {
         column_number: u32,
     ) -> !;
 
+    #[link_name = "bigDecimal.toString"]
+    pub fn big_decimal__to_string(data: *const AscRef<AscBigDecimal>) -> *const AscStr;
+
     #[link_name = "crypto.keccak256"]
-    pub fn crypto__keccak256(data: *const AscByteArray) -> *const AscByteArray;
+    pub fn crypto__keccak256(data: *const AscRef<AscByteArray>) -> *const AscRef<AscByteArray>;
 
     #[link_name = "dataSource.address"]
-    pub fn data_source__address() -> *const AscAddress;
+    pub fn data_source__address() -> *const AscRef<AscAddress>;
+    #[link_name = "dataSource.context"]
+    pub fn data_source__context() -> *const AscRef<AscValueMap>;
     #[link_name = "dataSource.create"]
     pub fn data_source__create(name: *const AscStr, params: *const AscRef<AscArray<AscString>>);
+    #[link_name = "dataSource.createWithContext"]
+    pub fn data_source__create_with_context(
+        name: *const AscStr,
+        params: *const AscRef<AscArray<AscString>>,
+        context: *const AscRef<AscValueMap>,
+    );
+    #[link_name = "dataSource.network"]
+    pub fn data_source__network() -> *const AscStr;
 
     #[link_name = "json.fromBytes"]
-    pub fn json__from_bytes(data: *const AscBytes) -> *const AscRef<AscJsonValue>;
+    pub fn json__from_bytes(data: *const AscRef<AscBytes>) -> *const AscRef<AscJsonValue>;
     #[link_name = "json.toBigInt"]
-    pub fn json__to_big_int(data: *const AscStr) -> *const AscBigInt;
+    pub fn json__to_big_int(data: *const AscStr) -> *const AscRef<AscBigInt>;
     #[link_name = "json.toF64"]
     pub fn json__to_f64(data: *const AscStr) -> f64;
     #[link_name = "json.toI64"]
@@ -45,24 +58,24 @@ extern "C" {
     pub fn json__to_u64(data: *const AscStr) -> u64;
     #[link_name = "json.try_fromBytes"]
     pub fn json__try_from_bytes(
-        data: *const AscBytes,
+        data: *const AscRef<AscBytes>,
     ) -> *const AscRef<AscResult<AscBox<AscJsonValue>, bool>>;
 
     #[link_name = "log.log"]
     pub fn log__log(level: u32, message: *const AscStr);
 
     #[link_name = "typeConversion.bigIntToHex"]
-    pub fn type_conversion__big_int_to_hex(big_int: *const AscBigInt) -> *const AscStr;
+    pub fn type_conversion__big_int_to_hex(big_int: *const AscRef<AscBigInt>) -> *const AscStr;
     #[link_name = "typeConversion.bigIntToString"]
-    pub fn type_conversion__big_int_to_string(big_int: *const AscBigInt) -> *const AscStr;
+    pub fn type_conversion__big_int_to_string(big_int: *const AscRef<AscBigInt>) -> *const AscStr;
     #[link_name = "typeConversion.bytesToBase58"]
-    pub fn type_conversion__bytes_to_base58(bytes: *const AscUint8Array) -> *const AscStr;
+    pub fn type_conversion__bytes_to_base58(bytes: *const AscRef<AscUint8Array>) -> *const AscStr;
     #[link_name = "typeConversion.bytesToHex"]
-    pub fn type_conversion__bytes_to_hex(bytes: *const AscUint8Array) -> *const AscStr;
+    pub fn type_conversion__bytes_to_hex(bytes: *const AscRef<AscUint8Array>) -> *const AscStr;
     #[link_name = "typeConversion.bytesToString"]
-    pub fn type_conversion__bytes_to_string(bytes: *const AscUint8Array) -> *const AscStr;
+    pub fn type_conversion__bytes_to_string(bytes: *const AscRef<AscUint8Array>) -> *const AscStr;
     #[link_name = "typeConversion.stringToH160"]
-    pub fn type_conversion__string_to_h160(bytes: *const AscStr) -> *const AscUint8Array;
+    pub fn type_conversion__string_to_h160(bytes: *const AscStr) -> *const AscRef<AscUint8Array>;
 }
 
 /// List of linked imports for Ethereum:
@@ -73,7 +86,7 @@ extern "C" {
 /// - [ ] bigDecimal.minus
 /// - [ ] bigDecimal.plus
 /// - [ ] bigDecimal.times
-/// - [ ] bigDecimal.toString
+/// - [x] bigDecimal.toString
 /// - [ ] bigInt.bitAnd
 /// - [ ] bigInt.bitOr
 /// - [ ] bigInt.dividedBy
@@ -88,10 +101,10 @@ extern "C" {
 /// - [ ] bigInt.times
 /// - [x] crypto.keccak256
 /// - [x] dataSource.address
-/// - [ ] dataSource.context
-/// - [ ] dataSource.create
-/// - [ ] dataSource.createWithContext
-/// - [ ] dataSource.network
+/// - [x] dataSource.context
+/// - [x] dataSource.create
+/// - [x] dataSource.createWithContext
+/// - [x] dataSource.network
 /// - [ ] ens.nameByHash
 /// - [ ] ethereum.decode
 /// - [ ] ethereum.encode

@@ -2,6 +2,7 @@
 
 use crate::{
     ffi::{
+        boxed::AscRef,
         buf::AscTypedArray,
         str::AscString,
         sys,
@@ -9,13 +10,13 @@ use crate::{
     },
     num::BigInt,
 };
+use indexmap::IndexMap;
 use std::{
     borrow::Cow,
     error::Error,
     fmt::{self, Debug, Display, Formatter},
+    str::FromStr,
 };
-
-pub use indexmap::IndexMap;
 
 /// A Subgraph JSON value.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -31,7 +32,7 @@ pub enum Value {
 
 impl Value {
     /// Creates a new instance from a raw JSON value.
-    fn from_raw(raw: &AscJsonValue) -> Self {
+    fn from_raw(raw: &AscRef<AscJsonValue>) -> Self {
         match raw.data() {
             AscJsonValueData::Null => Self::Null,
             AscJsonValueData::Bool(value) => Self::Bool(value),
@@ -41,18 +42,20 @@ impl Value {
             AscJsonValueData::String(value) => Self::String(value.to_string_lossy()),
             AscJsonValueData::Array(value) => Self::Array(
                 value
+                    .as_slice()
                     .iter()
                     .map(|value| Self::from_raw(value.as_asc_ref()))
                     .collect(),
             ),
             AscJsonValueData::Object(value) => Self::Object(
                 value
+                    .entries()
                     .iter()
                     .map(|entry| {
                         let entry = entry.as_asc_ref();
                         (
-                            entry.key.to_string_lossy(),
-                            Self::from_raw(entry.value.as_asc_ref()),
+                            entry.key().to_string_lossy(),
+                            Self::from_raw(entry.value().as_asc_ref()),
                         )
                     })
                     .collect(),
@@ -211,6 +214,14 @@ impl Default for Number {
 impl Display for Number {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str(&self.0)
+    }
+}
+
+impl FromStr for Value {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::try_from_bytes(s)
     }
 }
 

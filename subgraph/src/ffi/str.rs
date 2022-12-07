@@ -45,6 +45,7 @@ impl ToOwned for AscStr {
 }
 
 /// An owned AssemblyScript string.
+#[derive(Clone)]
 #[repr(transparent)]
 pub struct AscString {
     inner: AscBox<[u16]>,

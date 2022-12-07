@@ -1,28 +1,31 @@
 use crate::ffi::{
-    buf::AscTypedArray,
-    sys::{self, AscBigInt},
+    boxed::{AscCow, AscRef},
+    num::{AscBigDecimal, AscBigInt},
+    sys,
 };
-use std::{
-    borrow::Cow,
-    fmt::{self, Debug, Display, Formatter, LowerHex, UpperHex},
-};
+use std::fmt::{self, Debug, Display, Formatter, LowerHex, UpperHex};
 
 /// A arbitrarily sized integer type.
+#[derive(Clone)]
 pub struct BigInt {
-    inner: Cow<'static, AscBigInt>,
+    inner: AscCow<'static, AscBigInt>,
 }
 
 impl BigInt {
-    pub(crate) fn from_raw(raw: &'static AscBigInt) -> Self {
+    pub(crate) fn from_raw(raw: &'static AscRef<AscBigInt>) -> Self {
         Self {
-            inner: Cow::Borrowed(raw),
+            inner: raw.borrowed(),
         }
+    }
+
+    pub(crate) fn as_raw(&self) -> &AscRef<AscBigInt> {
+        &self.inner
     }
 
     // TODO(nlordell): Implement proper `BigInt` construction.
     pub fn temp_new(x: i8) -> Self {
         Self {
-            inner: Cow::Owned(AscTypedArray::from_bytes([x as _].as_slice())),
+            inner: AscBigInt::from_bytes([x as _].as_slice()).owned(),
         }
     }
 
@@ -54,7 +57,7 @@ impl Debug for BigInt {
 
 impl Display for BigInt {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let str = unsafe { &*sys::type_conversion__big_int_to_string(&*self.inner as _) };
+        let str = unsafe { &*sys::type_conversion__big_int_to_string(self.inner.as_ptr()) };
 
         let str = str.to_string_lossy();
         let (is_non_negative, abs) = match str.strip_prefix('-') {
@@ -95,4 +98,50 @@ fn fmt_hex(value: &BigInt, f: &mut Formatter, transform: impl FnOnce(&mut str)) 
     let abs = str.strip_prefix('-').unwrap_or(str);
 
     f.pad_integral(is_non_negative, "0x", abs)
+}
+
+/// An arbitrary precision decimal number.
+#[derive(Clone)]
+pub struct BigDecimal {
+    inner: AscCow<'static, AscBigDecimal>,
+}
+
+impl BigDecimal {
+    pub(crate) fn from_raw(raw: &'static AscRef<AscBigDecimal>) -> Self {
+        Self {
+            inner: raw.borrowed(),
+        }
+    }
+
+    pub(crate) fn as_raw(&self) -> &AscRef<AscBigDecimal> {
+        &self.inner
+    }
+
+    /// Creates a new integer value from the specified [`BigInt`].
+    pub fn new(value: BigInt) -> Self {
+        let value = AscBigDecimal::new(value.inner.into_owned(), AscBigInt::from_bytes(&[0]));
+        Self {
+            inner: value.owned(),
+        }
+    }
+}
+
+impl Debug for BigDecimal {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(self, f)
+    }
+}
+
+impl Display for BigDecimal {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let str = unsafe { &*sys::big_decimal__to_string(self.inner.as_ptr()) };
+
+        let str = str.to_string_lossy();
+        let (is_non_negative, abs) = match str.strip_prefix('-') {
+            Some(abs) => (false, abs),
+            None => (true, str.as_str()),
+        };
+
+        f.pad_integral(is_non_negative, "", abs)
+    }
 }

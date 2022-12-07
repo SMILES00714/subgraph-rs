@@ -2,7 +2,7 @@
 
 use std::{
     alloc::{self, Layout},
-    borrow::Borrow,
+    borrow::{Borrow, Cow},
     fmt::{self, Debug, Formatter},
     iter::FromIterator,
     mem,
@@ -54,7 +54,7 @@ where
 /// - That `AscBox` is transmutable to `&Self::Ref`.
 pub unsafe trait AscBoxed {
     type Target: Sized;
-    type Ref: Sized;
+    type Ref: Borrow<Self> + Sized;
 }
 
 unsafe impl<T> AscBoxed for T
@@ -152,6 +152,22 @@ where
     pub fn as_ptr(&self) -> *const T::Ref {
         self.as_asc_ref() as _
     }
+
+    /// Returns the AssemblyScript slice as a borrowed copy-on-write pointer.
+    pub fn borrowed(&self) -> AscCow<T>
+    where
+        T::Ref: ToOwned<Owned = Self>,
+    {
+        Cow::Borrowed(self.as_asc_ref())
+    }
+
+    /// Returns the AssemblyScript slice as an owned copy-on-write pointer.
+    pub fn owned(self) -> AscCow<'static, T>
+    where
+        T::Ref: ToOwned<Owned = Self>,
+    {
+        Cow::Owned(self)
+    }
 }
 
 impl<T> Borrow<AscRef<T>> for AscBox<T> {
@@ -186,20 +202,11 @@ where
 
 impl<T> Debug for AscBox<T>
 where
-    T: Debug,
-{
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_tuple("AscBox").field(&self.as_asc_ref().inner).finish()
-    }
-}
-
-impl<T> Debug for AscBox<[T]>
-where
-    T: Debug,
+    T: AscBoxed + Debug + ?Sized,
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_tuple("AscBox")
-            .field(&self.as_asc_ref().as_slice())
+            .field(&self.as_asc_ref().borrow())
             .finish()
     }
 }
@@ -274,10 +281,34 @@ where
     }
 }
 
+/// Copy-on-write AssemblyScript boxed value.
+pub type AscCow<'a, T> = Cow<'a, <T as AscBoxed>::Ref>;
+
 /// A reference to an AssemblyScript value.
 #[repr(transparent)]
 pub struct AscRef<T> {
     inner: T,
+}
+
+impl<T> AscRef<T> {
+    /// Returns the AssemblyScript slice as a copy-on-write pointer.
+    pub fn borrowed(&self) -> AscCow<T>
+    where
+        T: Clone,
+    {
+        Cow::Borrowed(self)
+    }
+
+    /// Returns the AssemblyScript value reference as a pointer.
+    pub fn as_ptr(&self) -> *const Self {
+        self as _
+    }
+}
+
+impl<T> Borrow<T> for AscRef<T> {
+    fn borrow(&self) -> &T {
+        &self.inner
+    }
 }
 
 impl<T> Debug for AscRef<T>
@@ -332,6 +363,12 @@ impl<T> AscSlice<T> {
         // SAFETY: `data` points to an allocated array where all elements are
         // initialized - this is ensured as part of its construction.
         unsafe { slice::from_raw_parts(this, len) }
+    }
+}
+
+impl<T> Borrow<[T]> for AscSlice<T> {
+    fn borrow(&self) -> &[T] {
+        self.as_slice()
     }
 }
 

@@ -7,7 +7,11 @@ use crate::{
         sys::{self, AscAddress},
     },
 };
-use std::fmt::{self, Debug, Display, Formatter};
+use std::{
+    convert::Infallible,
+    fmt::{self, Debug, Display, Formatter},
+    str::FromStr,
+};
 
 /// An Ethereum address.
 #[derive(Clone, Copy, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -20,10 +24,8 @@ impl Address {
     }
 
     /// Returns a new address from its string reprensentation.
-    pub fn new(str: impl AsRef<str>) -> Self {
-        let str = AscString::new(str.as_ref());
-        let bytes = unsafe { &*sys::type_conversion__string_to_h160(str.as_ptr()) };
-        Self::from_raw(bytes)
+    pub fn parse(str: impl AsRef<str>) -> Self {
+        str.as_ref().parse().unwrap()
     }
 }
 
@@ -39,5 +41,15 @@ impl Display for Address {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let hex = conv::hex(self.0.as_slice());
         f.write_str(&hex)
+    }
+}
+
+impl FromStr for Address {
+    type Err = Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let str = AscString::new(s);
+        let bytes = unsafe { &*sys::type_conversion__string_to_h160(str.as_ptr()) };
+        Ok(Self::from_raw(bytes))
     }
 }
