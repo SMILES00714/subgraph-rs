@@ -295,6 +295,6 @@ asc_tagged_union! {
         String, string (string) = 6,
         FixedArray, fixedarray (boxed AscArray<AscBox<AscEthereumValue>>) = 7,
         Array, array (boxed AscArray<AscBox<AscEthereumValue>>) = 8,
-        Tuple, tuple (null) = 9,
+        Tuple, tuple (boxed AscArray<AscBox<AscEthereumValue>>) = 9,
     }
 }

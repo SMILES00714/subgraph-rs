@@ -2,7 +2,7 @@
 
 use crate::{
     conv,
-    ffi::{str::AscString, sys, types::AscAddress},
+    ffi::{boxed::AscBox, str::AscString, sys, types::AscAddress},
 };
 use std::{
     convert::Infallible,
@@ -18,6 +18,11 @@ impl Address {
     /// Returns an address from its raw byte representation.
     pub(crate) fn from_raw(bytes: &AscAddress) -> Self {
         Self(bytes.as_slice().try_into().unwrap())
+    }
+
+    /// Returns the address as an AssemblyScript value.
+    pub(crate) fn to_raw(self) -> AscBox<AscAddress> {
+        AscAddress::from_bytes(&self.0)
     }
 
     /// Returns a new address from its string reprensentation.

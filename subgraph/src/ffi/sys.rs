@@ -4,10 +4,11 @@
 
 use super::{
     boxed::{AscBox, AscRef},
+    eth::AscEthereumSmartContractCall,
     num::{AscBigDecimal, AscBigInt},
     str::{AscStr, AscString},
     types::{AscAddress, AscByteArray, AscBytes, AscUint8Array},
-    value::{AscArray, AscEntity, AscJsonValue, AscResult},
+    value::{AscArray, AscEntity, AscEntityValue, AscEthereumValue, AscJsonValue, AscResult},
 };
 
 #[link(wasm_import_module = "index")]
@@ -41,6 +42,31 @@ extern "C" {
     #[link_name = "dataSource.network"]
     pub fn data_source__network() -> *const AscStr;
 
+    #[link_name = "ens.nameByHash"]
+    pub fn ens__name_by_hash(hash: *const AscStr) -> *const AscStr;
+
+    #[link_name = "ethereum.call"]
+    pub fn ethereum__call(
+        call: *const AscRef<AscEthereumSmartContractCall>,
+    ) -> *const AscRef<AscArray<AscBox<AscEthereumValue>>>;
+    #[link_name = "ethereum.decode"]
+    pub fn ethereum__decode(
+        signature: *const AscStr,
+        data: *const AscRef<AscBytes>,
+    ) -> *const AscRef<AscEthereumValue>;
+    #[link_name = "ethereum.encode"]
+    pub fn ethereum__encode(value: *const AscRef<AscEthereumValue>) -> *const AscRef<AscBytes>;
+
+    #[link_name = "ipfs.cat"]
+    pub fn ipfs__cat(hash: *const AscStr) -> *const AscBytes;
+    #[link_name = "ipfs.map"]
+    pub fn ipfs__map(
+        hash: *const AscStr,
+        callback: *const AscStr,
+        user_data: *const AscRef<AscEntityValue>,
+        flags: *const AscRef<AscArray<AscString>>,
+    );
+
     #[link_name = "json.fromBytes"]
     pub fn json__from_bytes(data: *const AscRef<AscBytes>) -> *const AscRef<AscJsonValue>;
     #[link_name = "json.toBigInt"]
@@ -58,6 +84,13 @@ extern "C" {
 
     #[link_name = "log.log"]
     pub fn log__log(level: u32, message: *const AscStr);
+
+    #[link_name = "store.get"]
+    pub fn store__get(entity: *const AscStr, id: *const AscStr) -> *const AscRef<AscEntity>;
+    #[link_name = "store.remove"]
+    pub fn store__remove(entity: *const AscStr, id: *const AscStr);
+    #[link_name = "store.set"]
+    pub fn store__set(entity: *const AscStr, id: *const AscStr, data: *const AscRef<AscEntity>);
 
     #[link_name = "typeConversion.bigIntToHex"]
     pub fn type_conversion__big_int_to_hex(big_int: *const AscRef<AscBigInt>) -> *const AscStr;
@@ -100,12 +133,13 @@ extern "C" {
 /// - [x] dataSource.create
 /// - [x] dataSource.createWithContext
 /// - [x] dataSource.network
-/// - [ ] ens.nameByHash
-/// - [ ] ethereum.decode
-/// - [ ] ethereum.encode
-/// - [ ] ipfs.cat
-/// - [ ] ipfs.getBlock
-/// - [ ] ipfs.map
+/// - [x] ens.nameByHash
+/// - [x] ethereum.call
+/// - [x] ethereum.decode
+/// - [x] ethereum.encode
+/// - [x] ipfs.cat
+/// - [-] ipfs.getBlock (deprecated)
+/// - [x] ipfs.map
 /// - [x] json.fromBytes
 /// - [x] json.toBigInt
 /// - [x] json.toF64
@@ -113,9 +147,9 @@ extern "C" {
 /// - [x] json.toU64
 /// - [x] json.try_fromBytes
 /// - [x] log.log
-/// - [ ] store.get
-/// - [ ] store.remove
-/// - [ ] store.set
+/// - [x] store.get
+/// - [x] store.remove
+/// - [x] store.set
 /// - [x] typeConversion.bigIntToHex
 /// - [x] typeConversion.bigIntToString
 /// - [x] typeConversion.bytesToBase58

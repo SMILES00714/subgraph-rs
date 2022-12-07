@@ -2,6 +2,7 @@
 
 pub mod boxed;
 pub mod buf;
+pub mod eth;
 pub mod num;
 pub mod str;
 pub mod sys;

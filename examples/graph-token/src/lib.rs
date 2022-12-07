@@ -2,6 +2,7 @@ use subgraph::{
     address::Address,
     conv, crypto, datasource, json, log,
     num::{BigDecimal, BigInt},
+    store,
 };
 
 #[no_mangle]
@@ -127,4 +128,38 @@ pub extern "C" fn call_me() {
     //        ]),
     //    },
     //);
+
+    let check_storage = || {
+        let data = store::get("Thing", "0");
+        log::log(log::Level::Debug, &format!("{data:?}"));
+    };
+
+    check_storage();
+    store::set(
+        "Thing",
+        "0",
+        &subgraph::indexmap::indexmap! {
+            "foo".to_owned() => subgraph::entity::Value::String("bar".to_owned()),
+            "number".to_owned() => subgraph::entity::Value::Int(42),
+            "dec".to_owned() =>
+                subgraph::entity::Value::BigDecimal(BigDecimal::new(BigInt::temp_new(42))),
+            "isGood".to_owned() => subgraph::entity::Value::Bool(true),
+            "many".to_owned() => subgraph::entity::Value::Array(vec![
+                subgraph::entity::Value::Null,
+                subgraph::entity::Value::Bytes(vec![1, 2, 3]),
+                subgraph::entity::Value::BigInt(BigInt::temp_new(-1)),
+            ]),
+        },
+    );
+    check_storage();
+    store::remove("Thing", "0");
+    check_storage();
+
+    // FIXME(nlordell): Test new methods:
+    // ens::name_by_hash
+    // ethereum::call
+    // ethereum::decode
+    // ethereum::encode
+    // ipfs::cat
+    // ipfs::map
 }

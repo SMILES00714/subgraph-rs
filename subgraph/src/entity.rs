@@ -32,7 +32,7 @@ pub type Entity = IndexMap<String, Value>;
 
 impl Value {
     /// Creates a new instance from a raw Subgraph value.
-    fn from_raw(raw: &'static AscRef<AscEntityValue>) -> Self {
+    pub(crate) fn from_raw(raw: &'static AscRef<AscEntityValue>) -> Self {
         match raw.data() {
             AscEntityValueData::String(value) => Self::String(value.to_string_lossy()),
             AscEntityValueData::Int(value) => Self::Int(value),
@@ -52,18 +52,18 @@ impl Value {
     }
 
     /// Creates a raw AssemblyScript value.
-    fn to_raw(&self) -> AscBox<AscEntityValue> {
+    pub(crate) fn to_raw(&self) -> AscBox<AscEntityValue> {
         match self {
-            Value::String(value) => AscEntityValue::string(AscString::new(value)),
-            Value::Int(value) => AscEntityValue::int(*value),
-            Value::BigDecimal(value) => AscEntityValue::bigdecimal(value.as_raw().to_owned()),
-            Value::Bool(value) => AscEntityValue::bool(*value),
-            Value::Array(value) => {
+            Self::String(value) => AscEntityValue::string(AscString::new(value)),
+            Self::Int(value) => AscEntityValue::int(*value),
+            Self::BigDecimal(value) => AscEntityValue::bigdecimal(value.as_raw().to_owned()),
+            Self::Bool(value) => AscEntityValue::bool(*value),
+            Self::Array(value) => {
                 AscEntityValue::array(AscArray::new(value.iter().map(Value::to_raw).collect()))
             }
-            Value::Null => AscEntityValue::null(()),
-            Value::Bytes(value) => AscEntityValue::bytes(AscTypedArray::from_bytes(value)),
-            Value::BigInt(value) => AscEntityValue::bigint(value.as_raw().to_owned()),
+            Self::Null => AscEntityValue::null(()),
+            Self::Bytes(value) => AscEntityValue::bytes(AscTypedArray::from_bytes(value)),
+            Self::BigInt(value) => AscEntityValue::bigint(value.as_raw().to_owned()),
         }
     }
 }
