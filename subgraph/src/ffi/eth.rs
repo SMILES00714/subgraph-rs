@@ -1,89 +1,116 @@
 //! Ethereum-specific type definition.
 
 use super::{
-    boxed::AscBox,
-    str::AscString,
-    types::AscAddress,
+    boxed::{AscBox, AscNullableBox, AscRef},
+    num::AscBigInt,
+    str::{AscNullableString, AscStr, AscString},
+    types::{AscAddress, AscBytes},
     value::{AscArray, AscEthereumValue},
 };
 
-/*
-  /**
-   * An Ethereum block.
-   */
-  export class Block {
-    constructor(
-      public hash: Bytes,
-      public parentHash: Bytes,
-      public unclesHash: Bytes,
-      public author: Address,
-      public stateRoot: Bytes,
-      public transactionsRoot: Bytes,
-      public receiptsRoot: Bytes,
-      public number: BigInt,
-      public gasUsed: BigInt,
-      public gasLimit: BigInt,
-      public timestamp: BigInt,
-      public difficulty: BigInt,
-      public totalDifficulty: BigInt,
-      public size: BigInt | null,
-      public baseFeePerGas: BigInt | null,
-    ) {}
-  }
+macro_rules! handler_type {
+    (
+        $(#[$attr:meta])*
+        pub struct $name:ident {$(
+            $field:ident : $owned:ty => $ref:ty $([$met:ident])?
+                ,
+        )*}
+    ) => {
+        $(#[$attr])*
+        pub struct $name {$(
+            $field: $owned,
+        )*}
 
-  /**
-   * An Ethereum transaction.
-   */
-  export class Transaction {
-    constructor(
-      public hash: Bytes,
-      public index: BigInt,
-      public from: Address,
-      public to: Address | null,
-      public value: BigInt,
-      public gasLimit: BigInt,
-      public gasPrice: BigInt,
-      public input: Bytes,
-      public nonce: BigInt,
-    ) {}
-  }
+        impl $name {$(
+            handler_type_field! {
+                $field: $owned => $ref $([$met])*
+            }
+        )*}
+    };
+}
 
-  /**
-   * Common representation for Ethereum smart contract calls.
-   */
-  export class Call {
-    constructor(
-      public to: Address,
-      public from: Address,
-      public block: Block,
-      public transaction: Transaction,
-      public inputValues: Array<EventParam>,
-      public outputValues: Array<EventParam>,
-    ) {}
-  }
+macro_rules! handler_type_field {
+    ($field:ident : $owned:ty => $ref:ty) => {
+        handler_type_field! { $field: $owned => $ref [as_asc_ref] }
+    };
+    ($field:ident : $owned:ty => $ref:ty [$met:ident]) => {
+        pub(crate) fn $field(&self) -> $ref {
+            self.$field.$met()
+        }
+    };
+}
 
-  /**
-   * Common representation for Ethereum smart contract events.
-   */
-  export class Event {
-    constructor(
-      public address: Address,
-      public logIndex: BigInt,
-      public transactionLogIndex: BigInt,
-      public logType: string | null,
-      public block: Block,
-      public transaction: Transaction,
-      public parameters: Array<EventParam>,
-    ) {}
-  }
+handler_type! {
+    /// Ethereum block data.
+    pub struct AscBlock {
+        hash: AscBox<AscBytes> => &AscRef<AscBytes>,
+        parent_hash: AscBox<AscBytes> => &AscRef<AscBytes>,
+        uncles_hash: AscBox<AscBytes> => &AscRef<AscBytes>,
+        author: AscBox<AscAddress> => &AscRef<AscAddress>,
+        state_root: AscBox<AscBytes> => &AscRef<AscBytes>,
+        transactions_root: AscBox<AscBytes> => &AscRef<AscBytes>,
+        receipts_root: AscBox<AscBytes> => &AscRef<AscBytes>,
+        number: AscBox<AscBigInt> => &AscRef<AscBigInt>,
+        gas_used: AscBox<AscBigInt> => &AscRef<AscBigInt>,
+        gas_limit: AscBox<AscBigInt> => &AscRef<AscBigInt>,
+        timestamp: AscBox<AscBigInt> => &AscRef<AscBigInt>,
+        difficulty: AscBox<AscBigInt> => &AscRef<AscBigInt>,
+        total_difficulty: AscBox<AscBigInt> => &AscRef<AscBigInt>,
+        size: AscNullableBox<AscBigInt> => Option<&AscRef<AscBigInt>>,
+        base_fee_per_gas: AscNullableBox<AscBigInt> => Option<&AscRef<AscBigInt>>,
+    }
+}
 
-  /**
-   * A dynamically-typed Ethereum event parameter.
-   */
-  export class EventParam {
-    constructor(public name: string, public value: Value) {}
-  }
-*/
+handler_type! {
+    /// An Ethereum transaction.
+    pub struct AscTransaction {
+        hash: AscBox<AscBytes> => &AscRef<AscBytes>,
+        index: AscBox<AscBigInt> => &AscRef<AscBigInt>,
+        from: AscBox<AscAddress> => &AscRef<AscAddress>,
+        to: AscNullableBox<AscAddress> => Option<&AscRef<AscAddress>>,
+        value: AscBox<AscBigInt> => &AscRef<AscBigInt>,
+        gas_limit: AscBox<AscBigInt> => &AscRef<AscBigInt>,
+        gas_price: AscBox<AscBigInt> => &AscRef<AscBigInt>,
+        input: AscBox<AscBytes> => &AscRef<AscBytes>,
+        nonce: AscBox<AscBigInt> => &AscRef<AscBigInt>,
+    }
+}
+
+handler_type! {
+    /// Common representation for Ethereum smart contract calls.
+    pub struct AscCall {
+        to: AscBox<AscAddress> => &AscRef<AscAddress>,
+        from: AscBox<AscAddress> => &AscRef<AscAddress>,
+        block: AscBox<AscBlock> => &AscRef<AscBlock>,
+        transaction: AscBox<AscTransaction> => &AscRef<AscTransaction>,
+        input_values: AscBox<AscArray<AscBox<AscEventParam>>>
+            => &AscRef<AscArray<AscBox<AscEventParam>>>,
+        output_values: AscBox<AscArray<AscBox<AscEventParam>>>
+            => &AscRef<AscArray<AscBox<AscEventParam>>>,
+    }
+}
+
+handler_type! {
+    /// Common representation for Ethereum smart contract events.
+    pub struct AscEvent {
+        address: AscBox<AscAddress> => &AscRef<AscAddress>,
+        log_index: AscBox<AscBigInt> => &AscRef<AscBigInt>,
+        transaction_log_index: AscBox<AscBigInt> => &AscRef<AscBigInt>,
+        log_type: AscNullableString => Option<&AscStr> [as_asc_str],
+        block: AscBox<AscBlock> => &AscRef<AscBlock>,
+        transaction: AscBox<AscTransaction> => &AscRef<AscTransaction>,
+        parameters: AscBox<AscArray<AscBox<AscEventParam>>>
+            => &AscRef<AscArray<AscBox<AscEventParam>>>,
+    }
+}
+
+handler_type! {
+    /// A dynamically-typed Ethereum event parameter.
+    pub struct AscEventParam {
+        name: AscString => &AscStr [as_asc_str],
+        value: AscBox<AscEthereumValue> => &AscRef<AscEthereumValue>,
+    }
+}
 
 /// An Ethereum smart contract call.
 #[repr(C)]

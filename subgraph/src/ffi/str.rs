@@ -1,9 +1,10 @@
 //! AssemblyScript string.
 
-use super::boxed::{AscBox, AscSlice};
+use super::boxed::{AscBox, AscNullableBox, AscSlice};
 use std::{
     borrow::Borrow,
     fmt::{self, Debug, Formatter},
+    mem,
     ops::Deref,
 };
 
@@ -91,5 +92,20 @@ impl Deref for AscString {
 
     fn deref(&self) -> &Self::Target {
         self.as_asc_str()
+    }
+}
+
+/// A nullable AssemblyScript string.
+#[repr(transparent)]
+pub struct AscNullableString {
+    inner: AscNullableBox<[u16]>,
+}
+
+impl AscNullableString {
+    /// Returns a reference to a borrowed AssemblyScript string.
+    pub fn as_asc_str(&self) -> Option<&AscStr> {
+        let slice = self.inner.as_asc_ref()?;
+        // SAFETY: `AscStr` is a transparent wrapper around `AscSlice`.
+        Some(unsafe { mem::transmute(slice) })
     }
 }

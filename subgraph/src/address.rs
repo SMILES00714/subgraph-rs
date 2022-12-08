@@ -2,7 +2,12 @@
 
 use crate::{
     conv,
-    ffi::{boxed::AscBox, str::AscString, sys, types::AscAddress},
+    ffi::{
+        boxed::{AscBox, AscRef},
+        str::AscString,
+        sys,
+        types::AscAddress,
+    },
 };
 use std::{
     convert::Infallible,
@@ -16,7 +21,7 @@ pub struct Address(pub [u8; 20]);
 
 impl Address {
     /// Returns an address from its raw byte representation.
-    pub(crate) fn from_raw(bytes: &AscAddress) -> Self {
+    pub(crate) fn from_raw(bytes: &AscRef<AscAddress>) -> Self {
         Self(bytes.as_slice().try_into().unwrap())
     }
 
