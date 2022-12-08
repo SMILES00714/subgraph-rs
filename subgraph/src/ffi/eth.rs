@@ -8,107 +8,228 @@ use super::{
     value::{AscArray, AscEthereumValue},
 };
 
-macro_rules! handler_type {
-    (
-        $(#[$attr:meta])*
-        pub struct $name:ident {$(
-            $field:ident : $owned:ty => $ref:ty $([$met:ident])?
-                ,
-        )*}
-    ) => {
-        $(#[$attr])*
-        pub struct $name {$(
-            $field: $owned,
-        )*}
-
-        impl $name {$(
-            handler_type_field! {
-                $field: $owned => $ref $([$met])*
-            }
-        )*}
-    };
+/// Ethereum block data.
+pub struct AscBlock {
+    hash: AscBox<AscBytes>,
+    parent_hash: AscBox<AscBytes>,
+    uncles_hash: AscBox<AscBytes>,
+    author: AscBox<AscAddress>,
+    state_root: AscBox<AscBytes>,
+    transactions_root: AscBox<AscBytes>,
+    receipts_root: AscBox<AscBytes>,
+    number: AscBox<AscBigInt>,
+    gas_used: AscBox<AscBigInt>,
+    gas_limit: AscBox<AscBigInt>,
+    timestamp: AscBox<AscBigInt>,
+    difficulty: AscBox<AscBigInt>,
+    total_difficulty: AscBox<AscBigInt>,
+    size: AscNullableBox<AscBigInt>,
+    base_fee_per_gas: AscNullableBox<AscBigInt>,
 }
 
-macro_rules! handler_type_field {
-    ($field:ident : $owned:ty => $ref:ty) => {
-        handler_type_field! { $field: $owned => $ref [as_asc_ref] }
-    };
-    ($field:ident : $owned:ty => $ref:ty [$met:ident]) => {
-        pub(crate) fn $field(&self) -> $ref {
-            self.$field.$met()
-        }
-    };
-}
+impl AscBlock {
+    pub(crate) fn hash(&self) -> &AscRef<AscBytes> {
+        self.hash.as_asc_ref()
+    }
 
-handler_type! {
-    /// Ethereum block data.
-    pub struct AscBlock {
-        hash: AscBox<AscBytes> => &AscRef<AscBytes>,
-        parent_hash: AscBox<AscBytes> => &AscRef<AscBytes>,
-        uncles_hash: AscBox<AscBytes> => &AscRef<AscBytes>,
-        author: AscBox<AscAddress> => &AscRef<AscAddress>,
-        state_root: AscBox<AscBytes> => &AscRef<AscBytes>,
-        transactions_root: AscBox<AscBytes> => &AscRef<AscBytes>,
-        receipts_root: AscBox<AscBytes> => &AscRef<AscBytes>,
-        number: AscBox<AscBigInt> => &AscRef<AscBigInt>,
-        gas_used: AscBox<AscBigInt> => &AscRef<AscBigInt>,
-        gas_limit: AscBox<AscBigInt> => &AscRef<AscBigInt>,
-        timestamp: AscBox<AscBigInt> => &AscRef<AscBigInt>,
-        difficulty: AscBox<AscBigInt> => &AscRef<AscBigInt>,
-        total_difficulty: AscBox<AscBigInt> => &AscRef<AscBigInt>,
-        size: AscNullableBox<AscBigInt> => Option<&AscRef<AscBigInt>>,
-        base_fee_per_gas: AscNullableBox<AscBigInt> => Option<&AscRef<AscBigInt>>,
+    pub(crate) fn parent_hash(&self) -> &AscRef<AscBytes> {
+        self.parent_hash.as_asc_ref()
+    }
+
+    pub(crate) fn uncles_hash(&self) -> &AscRef<AscBytes> {
+        self.uncles_hash.as_asc_ref()
+    }
+
+    pub(crate) fn author(&self) -> &AscRef<AscAddress> {
+        self.author.as_asc_ref()
+    }
+
+    pub(crate) fn state_root(&self) -> &AscRef<AscBytes> {
+        self.state_root.as_asc_ref()
+    }
+
+    pub(crate) fn transactions_root(&self) -> &AscRef<AscBytes> {
+        self.transactions_root.as_asc_ref()
+    }
+
+    pub(crate) fn receipts_root(&self) -> &AscRef<AscBytes> {
+        self.receipts_root.as_asc_ref()
+    }
+
+    pub(crate) fn number(&self) -> &AscRef<AscBigInt> {
+        self.number.as_asc_ref()
+    }
+
+    pub(crate) fn gas_used(&self) -> &AscRef<AscBigInt> {
+        self.gas_used.as_asc_ref()
+    }
+
+    pub(crate) fn gas_limit(&self) -> &AscRef<AscBigInt> {
+        self.gas_limit.as_asc_ref()
+    }
+
+    pub(crate) fn timestamp(&self) -> &AscRef<AscBigInt> {
+        self.timestamp.as_asc_ref()
+    }
+
+    pub(crate) fn difficulty(&self) -> &AscRef<AscBigInt> {
+        self.difficulty.as_asc_ref()
+    }
+
+    pub(crate) fn total_difficulty(&self) -> &AscRef<AscBigInt> {
+        self.total_difficulty.as_asc_ref()
+    }
+
+    pub(crate) fn size(&self) -> Option<&AscRef<AscBigInt>> {
+        self.size.as_asc_ref()
+    }
+
+    pub(crate) fn base_fee_per_gas(&self) -> Option<&AscRef<AscBigInt>> {
+        self.base_fee_per_gas.as_asc_ref()
     }
 }
 
-handler_type! {
-    /// An Ethereum transaction.
-    pub struct AscTransaction {
-        hash: AscBox<AscBytes> => &AscRef<AscBytes>,
-        index: AscBox<AscBigInt> => &AscRef<AscBigInt>,
-        from: AscBox<AscAddress> => &AscRef<AscAddress>,
-        to: AscNullableBox<AscAddress> => Option<&AscRef<AscAddress>>,
-        value: AscBox<AscBigInt> => &AscRef<AscBigInt>,
-        gas_limit: AscBox<AscBigInt> => &AscRef<AscBigInt>,
-        gas_price: AscBox<AscBigInt> => &AscRef<AscBigInt>,
-        input: AscBox<AscBytes> => &AscRef<AscBytes>,
-        nonce: AscBox<AscBigInt> => &AscRef<AscBigInt>,
+/// An Ethereum transaction.
+pub struct AscTransaction {
+    hash: AscBox<AscBytes>,
+    index: AscBox<AscBigInt>,
+    from: AscBox<AscAddress>,
+    to: AscNullableBox<AscAddress>,
+    value: AscBox<AscBigInt>,
+    gas_limit: AscBox<AscBigInt>,
+    gas_price: AscBox<AscBigInt>,
+    input: AscBox<AscBytes>,
+    nonce: AscBox<AscBigInt>,
+}
+
+impl AscTransaction {
+    pub(crate) fn hash(&self) -> &AscRef<AscBytes> {
+        self.hash.as_asc_ref()
+    }
+
+    pub(crate) fn index(&self) -> &AscRef<AscBigInt> {
+        self.index.as_asc_ref()
+    }
+
+    pub(crate) fn from(&self) -> &AscRef<AscAddress> {
+        self.from.as_asc_ref()
+    }
+
+    pub(crate) fn to(&self) -> Option<&AscRef<AscAddress>> {
+        self.to.as_asc_ref()
+    }
+
+    pub(crate) fn value(&self) -> &AscRef<AscBigInt> {
+        self.value.as_asc_ref()
+    }
+
+    pub(crate) fn gas_limit(&self) -> &AscRef<AscBigInt> {
+        self.gas_limit.as_asc_ref()
+    }
+
+    pub(crate) fn gas_price(&self) -> &AscRef<AscBigInt> {
+        self.gas_price.as_asc_ref()
+    }
+
+    pub(crate) fn input(&self) -> &AscRef<AscBytes> {
+        self.input.as_asc_ref()
+    }
+
+    pub(crate) fn nonce(&self) -> &AscRef<AscBigInt> {
+        self.nonce.as_asc_ref()
     }
 }
 
-handler_type! {
-    /// Common representation for Ethereum smart contract calls.
-    pub struct AscCall {
-        to: AscBox<AscAddress> => &AscRef<AscAddress>,
-        from: AscBox<AscAddress> => &AscRef<AscAddress>,
-        block: AscBox<AscBlock> => &AscRef<AscBlock>,
-        transaction: AscBox<AscTransaction> => &AscRef<AscTransaction>,
-        input_values: AscBox<AscArray<AscBox<AscEventParam>>>
-            => &AscRef<AscArray<AscBox<AscEventParam>>>,
-        output_values: AscBox<AscArray<AscBox<AscEventParam>>>
-            => &AscRef<AscArray<AscBox<AscEventParam>>>,
+/// Common representation for Ethereum smart contract calls.
+pub struct AscCall {
+    to: AscBox<AscAddress>,
+    from: AscBox<AscAddress>,
+    block: AscBox<AscBlock>,
+    transaction: AscBox<AscTransaction>,
+    input_values: AscBox<AscArray<AscBox<AscEventParam>>>,
+    output_values: AscBox<AscArray<AscBox<AscEventParam>>>,
+}
+
+impl AscCall {
+    pub(crate) fn to(&self) -> &AscRef<AscAddress> {
+        self.to.as_asc_ref()
+    }
+
+    pub(crate) fn from(&self) -> &AscRef<AscAddress> {
+        self.from.as_asc_ref()
+    }
+
+    pub(crate) fn block(&self) -> &AscRef<AscBlock> {
+        self.block.as_asc_ref()
+    }
+
+    pub(crate) fn transaction(&self) -> &AscRef<AscTransaction> {
+        self.transaction.as_asc_ref()
+    }
+
+    pub(crate) fn input_values(&self) -> &AscRef<AscArray<AscBox<AscEventParam>>> {
+        self.input_values.as_asc_ref()
+    }
+
+    pub(crate) fn output_values(&self) -> &AscRef<AscArray<AscBox<AscEventParam>>> {
+        self.output_values.as_asc_ref()
     }
 }
 
-handler_type! {
-    /// Common representation for Ethereum smart contract events.
-    pub struct AscEvent {
-        address: AscBox<AscAddress> => &AscRef<AscAddress>,
-        log_index: AscBox<AscBigInt> => &AscRef<AscBigInt>,
-        transaction_log_index: AscBox<AscBigInt> => &AscRef<AscBigInt>,
-        log_type: AscNullableString => Option<&AscStr> [as_asc_str],
-        block: AscBox<AscBlock> => &AscRef<AscBlock>,
-        transaction: AscBox<AscTransaction> => &AscRef<AscTransaction>,
-        parameters: AscBox<AscArray<AscBox<AscEventParam>>>
-            => &AscRef<AscArray<AscBox<AscEventParam>>>,
+/// Common representation for Ethereum smart contract events.
+pub struct AscEvent {
+    address: AscBox<AscAddress>,
+    log_index: AscBox<AscBigInt>,
+    transaction_log_index: AscBox<AscBigInt>,
+    log_type: AscNullableString,
+    block: AscBox<AscBlock>,
+    transaction: AscBox<AscTransaction>,
+    parameters: AscBox<AscArray<AscBox<AscEventParam>>>,
+}
+
+impl AscEvent {
+    pub(crate) fn address(&self) -> &AscRef<AscAddress> {
+        self.address.as_asc_ref()
+    }
+
+    pub(crate) fn log_index(&self) -> &AscRef<AscBigInt> {
+        self.log_index.as_asc_ref()
+    }
+
+    pub(crate) fn transaction_log_index(&self) -> &AscRef<AscBigInt> {
+        self.transaction_log_index.as_asc_ref()
+    }
+
+    pub(crate) fn log_type(&self) -> Option<&AscStr> {
+        self.log_type.as_asc_str()
+    }
+
+    pub(crate) fn block(&self) -> &AscRef<AscBlock> {
+        self.block.as_asc_ref()
+    }
+
+    pub(crate) fn transaction(&self) -> &AscRef<AscTransaction> {
+        self.transaction.as_asc_ref()
+    }
+
+    pub(crate) fn parameters(&self) -> &AscRef<AscArray<AscBox<AscEventParam>>> {
+        self.parameters.as_asc_ref()
     }
 }
 
-handler_type! {
-    /// A dynamically-typed Ethereum event parameter.
-    pub struct AscEventParam {
-        name: AscString => &AscStr [as_asc_str],
-        value: AscBox<AscEthereumValue> => &AscRef<AscEthereumValue>,
+/// A dynamically-typed Ethereum event parameter.
+pub struct AscEventParam {
+    name: AscString,
+    value: AscBox<AscEthereumValue>,
+}
+
+impl AscEventParam {
+    pub(crate) fn name(&self) -> &AscStr {
+        self.name.as_asc_str()
+    }
+
+    pub(crate) fn value(&self) -> &AscRef<AscEthereumValue> {
+        self.value.as_asc_ref()
     }
 }
 
