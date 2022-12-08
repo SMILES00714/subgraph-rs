@@ -12,9 +12,7 @@ use crate::{
 use indexmap::IndexMap;
 
 /// A Subgraph entity value.
-// FIXME(nlordell): Add missing derives.
-//#[derive(Clone, Debug, Default, Eq, PartialEq)]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum Value {
     String(String),
     Int(i32),

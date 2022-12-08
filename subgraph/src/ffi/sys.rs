@@ -21,8 +21,84 @@ extern "C" {
         column_number: u32,
     ) -> !;
 
+    #[link_name = "bigDecimal.dividedBy"]
+    pub fn big_decimal__divided_by(
+        x: *const AscRef<AscBigDecimal>,
+        y: *const AscRef<AscBigDecimal>,
+    ) -> *const AscRef<AscBigDecimal>;
+    #[link_name = "bigDecimal.equals"]
+    pub fn big_decimal__equals(
+        x: *const AscRef<AscBigDecimal>,
+        y: *const AscRef<AscBigDecimal>,
+    ) -> bool;
+    #[link_name = "bigDecimal.fromString"]
+    pub fn big_decimal__from_string(s: *const AscStr) -> *const AscRef<AscBigDecimal>;
+    #[link_name = "bigDecimal.minus"]
+    pub fn big_decimal__minus(
+        x: *const AscRef<AscBigDecimal>,
+        y: *const AscRef<AscBigDecimal>,
+    ) -> *const AscRef<AscBigDecimal>;
+    #[link_name = "bigDecimal.plus"]
+    pub fn big_decimal__plus(
+        x: *const AscRef<AscBigDecimal>,
+        y: *const AscRef<AscBigDecimal>,
+    ) -> *const AscRef<AscBigDecimal>;
+    #[link_name = "bigDecimal.times"]
+    pub fn big_decimal__times(
+        x: *const AscRef<AscBigDecimal>,
+        y: *const AscRef<AscBigDecimal>,
+    ) -> *const AscRef<AscBigDecimal>;
     #[link_name = "bigDecimal.toString"]
-    pub fn big_decimal__to_string(data: *const AscRef<AscBigDecimal>) -> *const AscStr;
+    pub fn big_decimal__to_string(value: *const AscRef<AscBigDecimal>) -> *const AscStr;
+
+    #[link_name = "bigInt.bitAnd"]
+    pub fn big_int__bit_and(
+        x: *const AscRef<AscBigInt>,
+        y: *const AscRef<AscBigInt>,
+    ) -> *const AscRef<AscBigInt>;
+    #[link_name = "bigInt.bitOr"]
+    pub fn big_int__bit_or(
+        x: *const AscRef<AscBigInt>,
+        y: *const AscRef<AscBigInt>,
+    ) -> *const AscRef<AscBigInt>;
+    #[link_name = "bigInt.dividedBy"]
+    pub fn big_int__divided_by(
+        x: *const AscRef<AscBigInt>,
+        y: *const AscRef<AscBigInt>,
+    ) -> *const AscRef<AscBigInt>;
+    #[link_name = "bigInt.dividedByDecimal"]
+    pub fn big_int__divided_by_decimal(
+        x: *const AscRef<AscBigInt>,
+        y: *const AscRef<AscBigDecimal>,
+    ) -> *const AscRef<AscBigDecimal>;
+    #[link_name = "bigInt.fromString"]
+    pub fn big_int__from_string(s: *const AscStr) -> *const AscRef<AscBigInt>;
+    #[link_name = "bigInt.leftShift"]
+    pub fn big_int__left_shift(x: *const AscRef<AscBigInt>, y: u8) -> *const AscRef<AscBigInt>;
+    #[link_name = "bigInt.minus"]
+    pub fn big_int__minus(
+        x: *const AscRef<AscBigInt>,
+        y: *const AscRef<AscBigInt>,
+    ) -> *const AscRef<AscBigInt>;
+    #[link_name = "bigInt.mod"]
+    pub fn big_int__mod(
+        x: *const AscRef<AscBigInt>,
+        y: *const AscRef<AscBigInt>,
+    ) -> *const AscRef<AscBigInt>;
+    #[link_name = "bigInt.plus"]
+    pub fn big_int__plus(
+        x: *const AscRef<AscBigInt>,
+        y: *const AscRef<AscBigInt>,
+    ) -> *const AscRef<AscBigInt>;
+    #[link_name = "bigInt.pow"]
+    pub fn big_int__pow(x: *const AscRef<AscBigInt>, y: u8) -> *const AscRef<AscBigInt>;
+    #[link_name = "bigInt.rightShift"]
+    pub fn big_int__right_shift(x: *const AscRef<AscBigInt>, y: u8) -> *const AscRef<AscBigInt>;
+    #[link_name = "bigInt.times"]
+    pub fn big_int__times(
+        x: *const AscRef<AscBigInt>,
+        y: *const AscRef<AscBigInt>,
+    ) -> *const AscRef<AscBigInt>;
 
     #[link_name = "crypto.keccak256"]
     pub fn crypto__keccak256(data: *const AscRef<AscByteArray>) -> *const AscRef<AscByteArray>;
@@ -105,55 +181,3 @@ extern "C" {
     #[link_name = "typeConversion.stringToH160"]
     pub fn type_conversion__string_to_h160(bytes: *const AscStr) -> *const AscRef<AscUint8Array>;
 }
-
-/// List of linked imports for Ethereum:
-/// - [x] abort
-/// - [ ] bigDecimal.dividedBy
-/// - [ ] bigDecimal.equals
-/// - [ ] bigDecimal.fromString
-/// - [ ] bigDecimal.minus
-/// - [ ] bigDecimal.plus
-/// - [ ] bigDecimal.times
-/// - [x] bigDecimal.toString
-/// - [ ] bigInt.bitAnd
-/// - [ ] bigInt.bitOr
-/// - [ ] bigInt.dividedBy
-/// - [ ] bigInt.dividedByDecimal
-/// - [ ] bigInt.fromString
-/// - [ ] bigInt.leftShift
-/// - [ ] bigInt.minus
-/// - [ ] bigInt.mod
-/// - [ ] bigInt.plus
-/// - [ ] bigInt.pow
-/// - [ ] bigInt.rightShift
-/// - [ ] bigInt.times
-/// - [x] crypto.keccak256
-/// - [x] dataSource.address
-/// - [x] dataSource.context
-/// - [x] dataSource.create
-/// - [x] dataSource.createWithContext
-/// - [x] dataSource.network
-/// - [x] ens.nameByHash
-/// - [x] ethereum.call
-/// - [x] ethereum.decode
-/// - [x] ethereum.encode
-/// - [x] ipfs.cat
-/// - [-] ipfs.getBlock (deprecated)
-/// - [x] ipfs.map
-/// - [x] json.fromBytes
-/// - [x] json.toBigInt
-/// - [x] json.toF64
-/// - [x] json.toI64
-/// - [x] json.toU64
-/// - [x] json.try_fromBytes
-/// - [x] log.log
-/// - [x] store.get
-/// - [x] store.remove
-/// - [x] store.set
-/// - [x] typeConversion.bigIntToHex
-/// - [x] typeConversion.bigIntToString
-/// - [x] typeConversion.bytesToBase58
-/// - [x] typeConversion.bytesToHex
-/// - [x] typeConversion.bytesToString
-/// - [x] typeConversion.stringToH160
-mod missing {}

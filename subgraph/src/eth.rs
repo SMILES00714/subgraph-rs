@@ -1,6 +1,6 @@
 //! Ethereum, in all its glory.
 //!
-//! FIXME(nlordell): Type-safe `FixedBytes`, and `Array` values.
+//! TODO(nlordell): Type-safe `FixedBytes`, and `Array` values.
 
 use crate::{
     address::Address,
@@ -16,7 +16,7 @@ use crate::{
 };
 
 /// Execute an Ethereum call.
-pub fn call(call: &Call) -> Option<Vec<Value>> {
+pub fn call(call: SmartContractCall) -> Option<Vec<Value>> {
     let call = call.to_raw();
     let result = unsafe {
         let result = sys::ethereum__call(call.as_ptr());
@@ -63,9 +63,7 @@ pub fn decode(signature: impl AsRef<str>, data: impl AsRef<[u8]>) -> Option<Valu
 }
 
 /// An Ethereum value.
-// FIXME(nlordell): Add missing derives.
-//#[derive(Clone, Debug, Default, Eq, PartialEq)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Value {
     Address(Address),
     FixedBytes(Vec<u8>),
@@ -139,30 +137,42 @@ impl Value {
     }
 }
 
-/// An Ethereum call.
-#[derive(Clone, Debug)]
-pub struct Call {
-    pub contract_name: String,
-    pub contract_address: Address,
-    pub function_name: String,
-    pub function_signature: String,
-    pub function_params: Vec<Value>,
+/// An Ethereum contract reference.
+#[derive(Clone, Copy, Debug)]
+pub struct Contract<'a> {
+    /// The name of the contract. This is used by the host for matching with an
+    /// ABI for call encoding and decoding.
+    pub name: &'a str,
+    /// The contract address.
+    pub address: &'a Address,
 }
 
-impl Call {
+/// A contract fuction.
+#[derive(Clone, Copy, Debug)]
+pub struct Function<'a> {
+    /// The function name.
+    pub name: &'a str,
+    /// The function signature.
+    pub signature: &'a str,
+}
+
+/// An Ethereum call.
+#[derive(Clone, Copy, Debug)]
+pub struct SmartContractCall<'a> {
+    pub contract: Contract<'a>,
+    pub function: Function<'a>,
+    pub params: &'a [Value],
+}
+
+impl SmartContractCall<'_> {
     /// Converts a call into an [`AscEthereumSmartContractCall`].
-    fn to_raw(&self) -> AscBox<AscEthereumSmartContractCall> {
+    fn to_raw(self) -> AscBox<AscEthereumSmartContractCall> {
         AscEthereumSmartContractCall::new(
-            AscString::new(&self.contract_name),
-            self.contract_address.to_raw(),
-            AscString::new(&self.function_name),
-            AscString::new(&self.function_signature),
-            AscArray::new(
-                self.function_params
-                    .iter()
-                    .map(|value| value.to_raw())
-                    .collect(),
-            ),
+            AscString::new(self.contract.name),
+            self.contract.address.to_raw(),
+            AscString::new(self.function.name),
+            AscString::new(self.function.signature),
+            AscArray::new(self.params.iter().map(|value| value.to_raw()).collect()),
         )
     }
 }
