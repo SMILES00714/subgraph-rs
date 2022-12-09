@@ -281,3 +281,21 @@ pub extern "C" fn call_me() {
         );
     }
 }
+
+#[no_mangle]
+pub unsafe extern "C" fn block_handler(block: eth::BlockPtr) {
+    let block = eth::Block::from_ptr(block);
+    log::log(log::Level::Debug, &format!("handled block {block:?}"));
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn call_handler(call: eth::CallPtr) {
+    let call = eth::Call::from_ptr(call);
+    log::log(log::Level::Debug, &format!("handled call {call:?}"));
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn event_handler(event: eth::EventPtr) {
+    let event = eth::Event::from_ptr(event);
+    log::log(log::Level::Debug, &format!("handled event {event:?}"));
+}

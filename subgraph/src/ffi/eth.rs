@@ -140,6 +140,128 @@ impl AscTransaction {
     }
 }
 
+/// An Ethereum transaction receipt.
+pub struct AscTransactionReceipt {
+    transaction_hash: AscBox<AscBytes>,
+    transaction_index: AscBox<AscBigInt>,
+    block_hash: AscBox<AscBytes>,
+    block_number: AscBox<AscBigInt>,
+    cumulative_gas_used: AscBox<AscBigInt>,
+    gas_used: AscBox<AscBigInt>,
+    contract_address: AscBox<AscAddress>,
+    logs: AscBox<AscArray<AscBox<AscLog>>>,
+    status: AscBox<AscBigInt>,
+    root: AscBox<AscBytes>,
+    logs_bloom: AscBox<AscBytes>,
+}
+
+impl AscTransactionReceipt {
+    pub(crate) fn transaction_hash(&self) -> &AscRef<AscBytes> {
+        self.transaction_hash.as_asc_ref()
+    }
+
+    pub(crate) fn transaction_index(&self) -> &AscRef<AscBigInt> {
+        self.transaction_index.as_asc_ref()
+    }
+
+    pub(crate) fn block_hash(&self) -> &AscRef<AscBytes> {
+        self.block_hash.as_asc_ref()
+    }
+
+    pub(crate) fn block_number(&self) -> &AscRef<AscBigInt> {
+        self.block_number.as_asc_ref()
+    }
+
+    pub(crate) fn cumulative_gas_used(&self) -> &AscRef<AscBigInt> {
+        self.cumulative_gas_used.as_asc_ref()
+    }
+
+    pub(crate) fn gas_used(&self) -> &AscRef<AscBigInt> {
+        self.gas_used.as_asc_ref()
+    }
+
+    pub(crate) fn contract_address(&self) -> &AscRef<AscAddress> {
+        self.contract_address.as_asc_ref()
+    }
+
+    pub(crate) fn logs(&self) -> &AscRef<AscArray<AscBox<AscLog>>> {
+        self.logs.as_asc_ref()
+    }
+
+    pub(crate) fn status(&self) -> &AscRef<AscBigInt> {
+        self.status.as_asc_ref()
+    }
+
+    pub(crate) fn root(&self) -> &AscRef<AscBytes> {
+        self.root.as_asc_ref()
+    }
+
+    pub(crate) fn logs_bloom(&self) -> &AscRef<AscBytes> {
+        self.logs_bloom.as_asc_ref()
+    }
+}
+
+/// An Ethereum log.
+pub struct AscLog {
+    address: AscBox<AscAddress>,
+    topics: AscBox<AscArray<AscBox<AscBytes>>>,
+    data: AscBox<AscBytes>,
+    block_hash: AscBox<AscBytes>,
+    block_number: AscBox<AscBytes>,
+    transaction_hash: AscBox<AscBytes>,
+    transaction_index: AscBox<AscBigInt>,
+    log_index: AscBox<AscBigInt>,
+    transaction_log_index: AscBox<AscBigInt>,
+    log_type: AscNullableString,
+    removed: AscNullableBox<bool>,
+}
+
+impl AscLog {
+    pub(crate) fn address(&self) -> &AscRef<AscAddress> {
+        self.address.as_asc_ref()
+    }
+
+    pub(crate) fn topics(&self) -> &AscRef<AscArray<AscBox<AscBytes>>> {
+        self.topics.as_asc_ref()
+    }
+
+    pub(crate) fn data(&self) -> &AscRef<AscBytes> {
+        self.data.as_asc_ref()
+    }
+
+    pub(crate) fn block_hash(&self) -> &AscRef<AscBytes> {
+        self.block_hash.as_asc_ref()
+    }
+
+    pub(crate) fn block_number(&self) -> &AscRef<AscBytes> {
+        self.block_number.as_asc_ref()
+    }
+
+    pub(crate) fn transaction_hash(&self) -> &AscRef<AscBytes> {
+        self.transaction_hash.as_asc_ref()
+    }
+
+    pub(crate) fn transaction_index(&self) -> &AscRef<AscBigInt> {
+        self.transaction_index.as_asc_ref()
+    }
+
+    pub(crate) fn log_index(&self) -> &AscRef<AscBigInt> {
+        self.log_index.as_asc_ref()
+    }
+
+    pub(crate) fn transaction_log_index(&self) -> &AscRef<AscBigInt> {
+        self.transaction_log_index.as_asc_ref()
+    }
+
+    pub(crate) fn log_type(&self) -> Option<&AscStr> {
+        self.log_type.as_asc_str()
+    }
+
+    pub(crate) fn removed(&self) -> Option<&AscRef<bool>> {
+        self.removed.as_asc_ref()
+    }
+}
+
 /// Common representation for Ethereum smart contract calls.
 pub struct AscCall {
     to: AscBox<AscAddress>,
@@ -185,6 +307,7 @@ pub struct AscEvent {
     block: AscBox<AscBlock>,
     transaction: AscBox<AscTransaction>,
     parameters: AscBox<AscArray<AscBox<AscEventParam>>>,
+    receipt: AscNullableBox<AscTransactionReceipt>,
 }
 
 impl AscEvent {
@@ -214,6 +337,10 @@ impl AscEvent {
 
     pub(crate) fn parameters(&self) -> &AscRef<AscArray<AscBox<AscEventParam>>> {
         self.parameters.as_asc_ref()
+    }
+
+    pub(crate) fn receipt(&self) -> Option<&AscRef<AscTransactionReceipt>> {
+        self.receipt.as_asc_ref()
     }
 }
 

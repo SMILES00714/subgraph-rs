@@ -2,14 +2,16 @@
 //!
 //! TODO(nlordell): Type-safe `FixedBytes`, and `Array` values.
 
-use self::ptr::*;
 use crate::{
     address::Address,
     crypto::Hash,
     ffi::{
         boxed::{AscBox, AscRef},
-        eth::{AscEthereumSmartContractCall, AscEventParam, AscTransaction},
-        str::AscString,
+        eth::{
+            AscBlock, AscCall, AscEthereumSmartContractCall, AscEvent, AscEventParam, AscLog,
+            AscTransaction, AscTransactionReceipt,
+        },
+        str::{AscStr, AscString},
         sys,
         types::AscBytes,
         value::{AscArray, AscEthereumValue, AscEthereumValueData},
@@ -17,12 +19,6 @@ use crate::{
     num::BigInt,
 };
 use indexmap::IndexMap;
-
-/// Re-exported pointer types used at handler entry points.
-#[doc(hidden)]
-pub mod ptr {
-    pub use crate::ffi::eth::{AscBlock, AscCall, AscEvent};
-}
 
 /// Execute an Ethereum call.
 pub fn call(call: SmartContractCall) -> Option<Vec<Value>> {
@@ -146,6 +142,9 @@ impl Value {
     }
 }
 
+/// A 256-byte bloom filter.
+pub type Bloom = [u8; 256];
+
 /// Ethereum block data.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Block {
@@ -165,6 +164,9 @@ pub struct Block {
     pub size: Option<BigInt>,
     pub base_fee_per_gas: Option<BigInt>,
 }
+
+/// A Raw pointer to an Ethereum block passed into a block handler.
+pub type BlockPtr = *const AscBlock;
 
 impl Block {
     fn from_raw(b: &'static AscRef<AscBlock>) -> Self {
@@ -192,7 +194,7 @@ impl Block {
     /// # Safety
     ///
     /// This must be a pointer passed into a block handler.
-    pub unsafe fn from_ptr(ptr: *const AscBlock) -> Self {
+    pub unsafe fn from_ptr(ptr: BlockPtr) -> Self {
         Self::from_raw(&*ptr.cast())
     }
 }
@@ -212,7 +214,7 @@ pub struct Transaction {
 }
 
 impl Transaction {
-    fn from_raw(t: &'static AscTransaction) -> Self {
+    fn from_raw(t: &'static AscRef<AscTransaction>) -> Self {
         Self {
             hash: t.hash().as_slice().try_into().unwrap(),
             index: BigInt::from_raw(t.index()),
@@ -227,6 +229,84 @@ impl Transaction {
     }
 }
 
+/// An Ethereum transaction receipt.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TransactionReceipt {
+    pub transaction_hash: Hash,
+    pub transaction_index: BigInt,
+    pub block_hash: Hash,
+    pub block_number: BigInt,
+    pub cumulative_gas_used: BigInt,
+    pub gas_used: BigInt,
+    pub contract_address: Address,
+    pub logs: Vec<Log>,
+    pub status: BigInt,
+    pub root: Hash,
+    pub logs_bloom: Bloom,
+}
+
+impl TransactionReceipt {
+    fn from_raw(t: &'static AscRef<AscTransactionReceipt>) -> Self {
+        Self {
+            transaction_hash: t.transaction_hash().as_slice().try_into().unwrap(),
+            transaction_index: BigInt::from_raw(t.transaction_index()),
+            block_hash: t.block_hash().as_slice().try_into().unwrap(),
+            block_number: BigInt::from_raw(t.block_number()),
+            cumulative_gas_used: BigInt::from_raw(t.cumulative_gas_used()),
+            gas_used: BigInt::from_raw(t.gas_used()),
+            contract_address: Address::from_raw(t.contract_address()),
+            logs: t
+                .logs()
+                .as_slice()
+                .iter()
+                .map(|l| Log::from_raw(l.as_asc_ref()))
+                .collect(),
+            status: BigInt::from_raw(t.status()),
+            root: t.root().as_slice().try_into().unwrap(),
+            logs_bloom: t.logs_bloom().as_slice().try_into().unwrap(),
+        }
+    }
+}
+
+/// An Ethereum log.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Log {
+    pub address: Address,
+    pub topics: Vec<Hash>,
+    pub data: Vec<u8>,
+    pub block_hash: Hash,
+    pub block_number: BigInt,
+    pub transaction_hash: Hash,
+    pub transaction_index: BigInt,
+    pub log_index: BigInt,
+    pub transaction_log_index: BigInt,
+    pub log_type: Option<String>,
+    pub removed: Option<bool>,
+}
+
+impl Log {
+    fn from_raw(l: &'static AscRef<AscLog>) -> Self {
+        Self {
+            address: Address::from_raw(l.address()),
+            topics: l
+                .topics()
+                .as_slice()
+                .iter()
+                .map(|t| t.as_asc_ref().as_slice().try_into().unwrap())
+                .collect(),
+            data: l.data().as_slice().to_owned(),
+            block_hash: l.block_hash().as_slice().try_into().unwrap(),
+            block_number: BigInt::from_raw(l.block_number()),
+            transaction_hash: l.transaction_hash().as_slice().try_into().unwrap(),
+            transaction_index: BigInt::from_raw(l.transaction_index()),
+            log_index: BigInt::from_raw(l.log_index()),
+            transaction_log_index: BigInt::from_raw(l.transaction_log_index()),
+            log_type: l.log_type().map(AscStr::to_string_lossy),
+            removed: l.removed().map(|r| **r),
+        }
+    }
+}
+
 /// Common representation for Ethereum smart contract calls.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Call {
@@ -237,6 +317,9 @@ pub struct Call {
     pub input_values: IndexMap<String, Value>,
     pub output_values: IndexMap<String, Value>,
 }
+
+/// A raw pointer to an Ethereum call passed into an call handler.
+pub type CallPtr = *const AscCall;
 
 impl Call {
     fn from_raw(c: &'static AscCall) -> Self {
@@ -255,7 +338,7 @@ impl Call {
     /// # Safety
     ///
     /// This must be a pointer passed into a call handler.
-    pub unsafe fn from_ptr(ptr: *const AscCall) -> Self {
+    pub unsafe fn from_ptr(ptr: CallPtr) -> Self {
         Self::from_raw(&*ptr.cast())
     }
 }
@@ -270,7 +353,11 @@ pub struct Event {
     pub block: Block,
     pub transaction: Transaction,
     pub parameters: IndexMap<String, Value>,
+    pub receipt: Option<TransactionReceipt>,
 }
+
+/// An event pointer for a handler.
+pub type EventPtr = *const AscEvent;
 
 impl Event {
     fn from_raw(e: &'static AscEvent) -> Self {
@@ -278,12 +365,11 @@ impl Event {
             address: Address::from_raw(e.address()),
             log_index: BigInt::from_raw(e.log_index()),
             transaction_log_index: BigInt::from_raw(e.transaction_log_index()),
-            log_type: e
-                .log_type()
-                .map(|l: &crate::ffi::str::AscStr| l.to_string_lossy()),
+            log_type: e.log_type().map(AscStr::to_string_lossy),
             block: Block::from_raw(e.block()),
             transaction: Transaction::from_raw(e.transaction()),
             parameters: params(e.parameters()),
+            receipt: e.receipt().map(TransactionReceipt::from_raw),
         }
     }
 
@@ -292,7 +378,7 @@ impl Event {
     /// # Safety
     ///
     /// This must be a pointer passed into a call handler.
-    pub unsafe fn from_ptr(ptr: *const AscEvent) -> Self {
+    pub unsafe fn from_ptr(ptr: EventPtr) -> Self {
         Self::from_raw(&*ptr.cast())
     }
 }
