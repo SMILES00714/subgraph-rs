@@ -1,22 +1,5 @@
 use subgraph::{address::Address, entity, eth, indexmap::indexmap, log, num::BigInt, store};
 
-/// `Approval` event entry point.
-///
-/// # Safety
-///
-/// Should only ever be called by the Subgraph host.
-#[no_mangle]
-pub unsafe extern "C" fn approval_handler(event: eth::EventPtr) {
-    approval(eth::Event::from_ptr(event));
-}
-
-fn approval(event: eth::Event) {
-    log::log(
-        log::Level::Info,
-        &format!("Approval {:?}", event.parameters),
-    );
-}
-
 /// `Transfer` event entry point.
 ///
 /// # Safety

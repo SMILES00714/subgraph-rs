@@ -15,15 +15,13 @@ dataSources:
       apiVersion: 0.0.7
       language: wasm/assemblyscript
       entities:
-        - Approval
+        - Holder
         - Transfer
       abis:
         - name: GraphToken
           file:
             /: /ipfs/${abis/GraphToken.json}
       eventHandlers:
-        - event: Approval(indexed address,indexed address,uint256)
-          handler: approval_handler
         - event: Transfer(indexed address,indexed address,uint256)
           handler: transfer_handler
       file:
