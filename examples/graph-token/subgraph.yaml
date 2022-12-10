@@ -1,0 +1,30 @@
+specVersion: 0.0.5
+schema:
+  file:
+    /: /ipfs/${schema.graphql}
+dataSources:
+  - kind: ethereum
+    name: GraphToken
+    network: goerli
+    source:
+      address: "0x5c946740441C12510a167B447B7dE565C20b9E3C"
+      abi: GraphToken
+      startBlock: 7224878
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Approval
+        - Transfer
+      abis:
+        - name: GraphToken
+          file:
+            /: /ipfs/${abis/GraphToken.json}
+      eventHandlers:
+        - event: Approval(indexed address,indexed address,uint256)
+          handler: approval_handler
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: transfer_handler
+      file:
+        /: /ipfs/${graph_token.wasm}
