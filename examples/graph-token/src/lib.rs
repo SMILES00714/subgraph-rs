@@ -11,7 +11,7 @@ unsafe fn sprawl(x: *const u32) -> String {
     let len = std::cmp::min(byte_len, 0x100) / 4;
     let words = std::slice::from_raw_parts(x.sub(4), len as _);
 
-    let mut buf = format!("{byte_len}");
+    let mut buf = format!("{x:?}: {byte_len}");
     for word in words {
         write!(&mut buf, " {:08x}", word).unwrap();
     }
@@ -25,20 +25,13 @@ unsafe fn sprawl(x: *const u32) -> String {
 /// Should only ever be called by the Subgraph host.
 #[no_mangle]
 pub unsafe extern "C" fn transfer_handler(event: eth::EventPtr) {
-    macro_rules! debug {
-        ($($f:tt)*) => {
-            log::log(log::Level::Warning, &format!($($f)*))
-        };
-    }
-
-    debug!("event  {}", sprawl(event.cast()));
-    for i in 0..8 {
-        debug!("field{i} {}", sprawl(*event.cast::<*const u32>().add(i)));
-    }
-    for (x, n) in [(4, 15), (5, 9), (7, 11)] {
-        let sub = *event.cast::<*const *const u32>().add(x);
-        for i in 0..n {
-            debug!("field{x}.{i} {}", sprawl(*sub.add(i)));
+    let receipt = *event.cast::<*const *const u32>().add(7);
+    if !receipt.is_null() {
+        for i in 0..11 {
+            log::log(
+                log::Level::Info,
+                &format!("receipt.{i:x} {}", sprawl(*receipt.add(i))),
+            );
         }
     }
 

@@ -16,9 +16,11 @@ use crate::{
         types::AscBytes,
         value::{AscArray, AscEthereumValue, AscEthereumValueData},
     },
+    log,
     num::BigInt,
 };
 use indexmap::IndexMap;
+use std::{mem, slice};
 
 /// Execute an Ethereum call.
 pub fn call(call: SmartContractCall) -> Option<Vec<Value>> {
@@ -328,23 +330,39 @@ pub struct TransactionReceipt {
     pub block_number: BigInt,
     pub cumulative_gas_used: BigInt,
     pub gas_used: BigInt,
-    pub contract_address: Option<Address>,
+    pub contract_address: Address,
     pub logs: Vec<Log>,
     pub status: BigInt,
-    pub root: Option<Hash>,
+    pub root: Hash,
     pub logs_bloom: Bloom,
 }
 
 impl TransactionReceipt {
-    fn from_raw(t: &'static AscRef<AscTransactionReceipt>) -> Self {
-        Self {
+    fn from_raw(t: &'static AscRef<AscTransactionReceipt>) -> Option<Self> {
+        // SAFETY: It is safe to transmute to numerical types.
+        let ptrs = unsafe {
+            let start = (t as *const AscRef<AscTransactionReceipt>).cast::<*const ()>();
+            slice::from_raw_parts(
+                start,
+                mem::size_of::<AscTransactionReceipt>() / mem::size_of::<*const ()>(),
+            )
+        };
+
+        // Make sure none of the pointers are null, this seems to happen for
+        // recent blocks when indexing...
+        if let Some(i) = ptrs.iter().position(|ptr| ptr.is_null()) {
+            log::log(log::Level::Warning, &format!("receipt field {i} is null"));
+            return None;
+        }
+
+        Some(Self {
             transaction_hash: t.transaction_hash().as_slice().try_into().unwrap(),
             transaction_index: BigInt::from_raw(t.transaction_index()),
             block_hash: t.block_hash().as_slice().try_into().unwrap(),
             block_number: BigInt::from_raw(t.block_number()),
             cumulative_gas_used: BigInt::from_raw(t.cumulative_gas_used()),
             gas_used: BigInt::from_raw(t.gas_used()),
-            contract_address: t.contract_address().map(Address::from_raw),
+            contract_address: Address::from_raw(t.contract_address()),
             logs: t
                 .logs()
                 .as_slice()
@@ -352,9 +370,9 @@ impl TransactionReceipt {
                 .map(|l| Log::from_raw(l.as_asc_ref()))
                 .collect(),
             status: BigInt::from_raw(t.status()),
-            root: t.root().map(|r| r.as_slice().try_into().unwrap()),
+            root: t.root().as_slice().try_into().unwrap(),
             logs_bloom: t.logs_bloom().as_slice().try_into().unwrap(),
-        }
+        })
     }
 }
 
@@ -459,7 +477,7 @@ impl Event {
             block: Block::from_raw(e.block()),
             transaction: Transaction::from_raw(e.transaction()),
             parameters: params(e.parameters()),
-            receipt: e.receipt().map(TransactionReceipt::from_raw),
+            receipt: e.receipt().and_then(TransactionReceipt::from_raw),
         }
     }
 

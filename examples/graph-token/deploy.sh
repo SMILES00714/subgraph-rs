@@ -66,7 +66,7 @@ subgraph_deploy() {
 	"params": {
 		"name": "graph-token",
 		"ipfs_hash": "$hash",
-		"version_label": "v0.0.35"
+		"version_label": "v0.0.38"
 	},
 	"id": "2"
 }
