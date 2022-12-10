@@ -1,4 +1,9 @@
 //! Subgraph logging.
+//!
+//! TODO(nlordell): Add internal debugging mechanism that can be used without
+//! AssemblyScript boxing (manually encode to a vector for example). This
+//! can be used for internal debugging of `AscBox: Drop` implementation for
+//! example.
 
 use crate::ffi::{str::AscString, sys};
 

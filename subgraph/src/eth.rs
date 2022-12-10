@@ -1,6 +1,8 @@
 //! Ethereum, in all its glory.
 //!
 //! TODO(nlordell): Type-safe `FixedBytes`, and `Array` values.
+//! FIXME(nlordell): Make field access lazy - this avoids issues like with the
+//! `TransactionReceipt` type, where some fields are `null`.
 
 use crate::{
     address::Address,
@@ -16,11 +18,9 @@ use crate::{
         types::AscBytes,
         value::{AscArray, AscEthereumValue, AscEthereumValueData},
     },
-    log,
     num::BigInt,
 };
 use indexmap::IndexMap;
-use std::{mem, slice};
 
 /// Execute an Ethereum call.
 pub fn call(call: SmartContractCall) -> Option<Vec<Value>> {
@@ -287,7 +287,7 @@ impl Block {
     ///
     /// This must be a pointer passed into a block handler.
     pub unsafe fn from_ptr(ptr: BlockPtr) -> Self {
-        Self::from_raw(&*ptr.cast())
+        Self::from_raw(&*ptr)
     }
 }
 
@@ -338,24 +338,8 @@ pub struct TransactionReceipt {
 }
 
 impl TransactionReceipt {
-    fn from_raw(t: &'static AscRef<AscTransactionReceipt>) -> Option<Self> {
-        // SAFETY: It is safe to transmute to numerical types.
-        let ptrs = unsafe {
-            let start = (t as *const AscRef<AscTransactionReceipt>).cast::<*const ()>();
-            slice::from_raw_parts(
-                start,
-                mem::size_of::<AscTransactionReceipt>() / mem::size_of::<*const ()>(),
-            )
-        };
-
-        // Make sure none of the pointers are null, this seems to happen for
-        // recent blocks when indexing...
-        if let Some(i) = ptrs.iter().position(|ptr| ptr.is_null()) {
-            log::log(log::Level::Warning, &format!("receipt field {i} is null"));
-            return None;
-        }
-
-        Some(Self {
+    fn from_raw(t: &'static AscRef<AscTransactionReceipt>) -> Self {
+        Self {
             transaction_hash: t.transaction_hash().as_slice().try_into().unwrap(),
             transaction_index: BigInt::from_raw(t.transaction_index()),
             block_hash: t.block_hash().as_slice().try_into().unwrap(),
@@ -372,7 +356,7 @@ impl TransactionReceipt {
             status: BigInt::from_raw(t.status()),
             root: t.root().as_slice().try_into().unwrap(),
             logs_bloom: t.logs_bloom().as_slice().try_into().unwrap(),
-        })
+        }
     }
 }
 
@@ -447,7 +431,7 @@ impl Call {
     ///
     /// This must be a pointer passed into a call handler.
     pub unsafe fn from_ptr(ptr: CallPtr) -> Self {
-        Self::from_raw(&*ptr.cast())
+        Self::from_raw(&*ptr)
     }
 }
 
@@ -477,7 +461,10 @@ impl Event {
             block: Block::from_raw(e.block()),
             transaction: Transaction::from_raw(e.transaction()),
             parameters: params(e.parameters()),
-            receipt: e.receipt().and_then(TransactionReceipt::from_raw),
+            // FIXME(nlordell): Don't parse receipts at all for now. They are
+            // non-deterministic and encode `null` for non-nullable fields.
+            // <https://github.com/graphprotocol/graph-node/issues/4239>
+            receipt: None,
         }
     }
 
@@ -487,7 +474,22 @@ impl Event {
     ///
     /// This must be a pointer passed into a call handler.
     pub unsafe fn from_ptr(ptr: EventPtr) -> Self {
-        Self::from_raw(&*ptr.cast())
+        Self::from_raw(&*ptr)
+    }
+
+    /// Creates an event from a raw pointer, including the transaction receipt.
+    /// This is currently not the default behaviour for events because the
+    /// receipts have non-deterministic `null` fields.
+    ///
+    /// # Safety
+    ///
+    /// This must be a pointer passed into a call handler and the transaction
+    /// receipt is correctly initialized.
+    pub unsafe fn from_ptr_with_receipt(ptr: EventPtr) -> Self {
+        Self {
+            receipt: (*ptr).receipt().map(TransactionReceipt::from_raw),
+            ..Self::from_raw(&*ptr)
+        }
     }
 }
 

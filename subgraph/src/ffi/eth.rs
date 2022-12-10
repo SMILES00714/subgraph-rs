@@ -1,4 +1,6 @@
 //! Ethereum-specific type definition.
+//!
+//! FIXME(nlordell): This whole accessor thing isn't really worth it.
 
 use super::{
     boxed::{AscBox, AscNullableBox, AscRef},

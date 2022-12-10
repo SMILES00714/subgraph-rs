@@ -3,7 +3,9 @@
 //! FIXME(nlordell):
 //! - Move to using reference-counted objects, this would allow allocation and
 //!   deallocation to work in `cargo test`.
-//! - Make sure pointers received from the host are well-alligned.
+//! - Make sure pointers received from the host are well-alligned and non-null.
+//! - Differenciate between host provided pointers, and internal allocations
+//!   for a safer FFI interface.
 
 use std::{
     alloc::{self, Layout},
