@@ -64,6 +64,77 @@ impl Value {
             Self::BigInt(value) => AscEntityValue::bigint(value.as_raw().to_owned()),
         }
     }
+
+    /// Returns the entity value as a string, or `None` if the value the wrong
+    /// type.
+    pub fn as_string(&self) -> Option<&str> {
+        match self {
+            Self::String(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    /// Returns the entity value as an int, or `None` if the value the wrong
+    /// type.
+    pub fn as_int(&self) -> Option<i32> {
+        match self {
+            Self::Int(value) => Some(*value),
+            _ => None,
+        }
+    }
+
+    /// Returns the entity value as a big decimal, or `None` if the value the
+    /// wrong type.
+    pub fn as_big_decimal(&self) -> Option<&BigDecimal> {
+        match self {
+            Self::BigDecimal(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    /// Returns the entity value as a bool, or `None` if the value the wrong
+    /// type.
+    pub fn as_bool(&self) -> Option<bool> {
+        match self {
+            Self::Bool(value) => Some(*value),
+            _ => None,
+        }
+    }
+
+    /// Returns the entity value as an array, or `None` if the value the wrong
+    /// type.
+    pub fn as_array(&self) -> Option<&[Value]> {
+        match self {
+            Self::Array(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    /// Returns the entity value as null, or `None` if the value the wrong type.
+    pub fn as_null(&self) -> Option<()> {
+        match self {
+            Self::Null => Some(()),
+            _ => None,
+        }
+    }
+
+    /// Returns the entity value as bytes, or `None` if the value the wrong
+    /// type.
+    pub fn as_bytes(&self) -> Option<&Vec<u8>> {
+        match self {
+            Self::Bytes(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    /// Returns the entity value as a big int, or `None` if the value the wrong
+    /// type.
+    pub fn as_big_int(&self) -> Option<&BigInt> {
+        match self {
+            Self::BigInt(value) => Some(value),
+            _ => None,
+        }
+    }
 }
 
 /// [`Entity`] extension trait.

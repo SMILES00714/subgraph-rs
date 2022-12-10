@@ -45,7 +45,7 @@ pub extern "C" fn start() {
 
 #[export_name = "allocate"]
 pub extern "C" fn allocate(size: usize) -> *mut u8 {
-    let layout = match Layout::from_size_align(ALIGN, size) {
+    let layout = match Layout::from_size_align(size, ALIGN) {
         Ok(value) => value,
         Err(_) => {
             // NOTE: Since `ALIGN` is guaranteed to be valid, this can only

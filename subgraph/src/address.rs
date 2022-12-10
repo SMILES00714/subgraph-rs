@@ -36,6 +36,17 @@ impl Address {
         let bytes = unsafe { &*sys::type_conversion__string_to_h160(str.as_ptr()) };
         Self::from_raw(bytes)
     }
+
+    /// Creates an address from a slice of bytes.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the slice is not exactly 20-bytes long.
+    pub fn from_slice(bytes: &[u8]) -> Self {
+        let mut result = Self::default();
+        result.0.copy_from_slice(bytes);
+        result
+    }
 }
 
 impl Debug for Address {

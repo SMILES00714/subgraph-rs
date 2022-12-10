@@ -86,7 +86,7 @@ impl Value {
     /// `null`.
     pub fn as_null(&self) -> Option<()> {
         match self {
-            Value::Null => Some(()),
+            Self::Null => Some(()),
             _ => None,
         }
     }
@@ -95,7 +95,7 @@ impl Value {
     /// `true` or `false`.
     pub fn as_bool(&self) -> Option<bool> {
         match self {
-            Value::Bool(value) => Some(*value),
+            Self::Bool(value) => Some(*value),
             _ => None,
         }
     }
@@ -104,7 +104,7 @@ impl Value {
     /// a number.
     pub fn as_number(&self) -> Option<&Number> {
         match self {
-            Value::Number(value) => Some(value),
+            Self::Number(value) => Some(value),
             _ => None,
         }
     }
@@ -113,25 +113,25 @@ impl Value {
     /// a string.
     pub fn as_string(&self) -> Option<&str> {
         match self {
-            Value::String(value) => Some(value),
+            Self::String(value) => Some(value),
             _ => None,
         }
     }
 
     /// Returns the JSON value as a slice of values, or `None` if the value is
     /// not an array.
-    pub fn as_array(&self) -> Option<&[Value]> {
+    pub fn as_array(&self) -> Option<&[Self]> {
         match self {
-            Value::Array(value) => Some(value),
+            Self::Array(value) => Some(value),
             _ => None,
         }
     }
 
     /// Returns the JSON value as a map of values, or `None` if the value is not
     /// an object.
-    pub fn as_object(&self) -> Option<&IndexMap<String, Value>> {
+    pub fn as_object(&self) -> Option<&IndexMap<String, Self>> {
         match self {
-            Value::Object(value) => Some(value),
+            Self::Object(value) => Some(value),
             _ => None,
         }
     }

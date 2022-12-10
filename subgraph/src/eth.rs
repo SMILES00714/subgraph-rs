@@ -140,6 +140,96 @@ impl Value {
             )),
         }
     }
+
+    /// Returns the Ethereum value as a address, or `None` if the value the
+    /// wrong type.
+    pub fn as_address(&self) -> Option<Address> {
+        match self {
+            Self::Address(value) => Some(*value),
+            _ => None,
+        }
+    }
+
+    /// Returns the Ethereum value as a fixed bytes, or `None` if the value the
+    /// wrong type.
+    pub fn as_fixed_bytes(&self) -> Option<&[u8]> {
+        match self {
+            Self::FixedBytes(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    /// Returns the Ethereum value as a bytes, or `None` if the value the wrong
+    /// type.
+    pub fn as_bytes(&self) -> Option<&[u8]> {
+        match self {
+            Self::Bytes(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    /// Returns the Ethereum value as a int, or `None` if the value the wrong
+    /// type.
+    pub fn as_int(&self) -> Option<&BigInt> {
+        match self {
+            Self::Int(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    /// Returns the Ethereum value as a uint, or `None` if the value the wrong
+    /// type.
+    pub fn as_uint(&self) -> Option<&BigInt> {
+        match self {
+            Self::Uint(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    /// Returns the Ethereum value as a bool, or `None` if the value the wrong
+    /// type.
+    pub fn as_bool(&self) -> Option<bool> {
+        match self {
+            Self::Bool(value) => Some(*value),
+            _ => None,
+        }
+    }
+
+    /// Returns the Ethereum value as a string, or `None` if the value the wrong
+    /// type.
+    pub fn as_string(&self) -> Option<&str> {
+        match self {
+            Self::String(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    /// Returns the Ethereum value as a fixed array, or `None` if the value the
+    /// wrong type.
+    pub fn as_fixed_array(&self) -> Option<&[Self]> {
+        match self {
+            Self::FixedArray(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    /// Returns the Ethereum value as a array, or `None` if the value the wrong
+    /// type.
+    pub fn as_array(&self) -> Option<&[Self]> {
+        match self {
+            Self::Array(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    /// Returns the Ethereum value as a tuple, or `None` if the value the wrong
+    /// type.
+    pub fn as_tuple(&self) -> Option<&[Self]> {
+        match self {
+            Self::Tuple(value) => Some(value),
+            _ => None,
+        }
+    }
 }
 
 /// A 256-byte bloom filter.
@@ -166,7 +256,7 @@ pub struct Block {
 }
 
 /// A Raw pointer to an Ethereum block passed into a block handler.
-pub type BlockPtr = *const AscBlock;
+pub type BlockPtr = *const AscRef<AscBlock>;
 
 impl Block {
     fn from_raw(b: &'static AscRef<AscBlock>) -> Self {
@@ -319,10 +409,10 @@ pub struct Call {
 }
 
 /// A raw pointer to an Ethereum call passed into an call handler.
-pub type CallPtr = *const AscCall;
+pub type CallPtr = *const AscRef<AscCall>;
 
 impl Call {
-    fn from_raw(c: &'static AscCall) -> Self {
+    fn from_raw(c: &'static AscRef<AscCall>) -> Self {
         Self {
             to: Address::from_raw(c.to()),
             from: Address::from_raw(c.from()),
@@ -357,10 +447,10 @@ pub struct Event {
 }
 
 /// An event pointer for a handler.
-pub type EventPtr = *const AscEvent;
+pub type EventPtr = *const AscRef<AscEvent>;
 
 impl Event {
-    fn from_raw(e: &'static AscEvent) -> Self {
+    fn from_raw(e: &'static AscRef<AscEvent>) -> Self {
         Self {
             address: Address::from_raw(e.address()),
             log_index: BigInt::from_raw(e.log_index()),
