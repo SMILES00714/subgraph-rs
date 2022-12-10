@@ -328,10 +328,10 @@ pub struct TransactionReceipt {
     pub block_number: BigInt,
     pub cumulative_gas_used: BigInt,
     pub gas_used: BigInt,
-    pub contract_address: Address,
+    pub contract_address: Option<Address>,
     pub logs: Vec<Log>,
     pub status: BigInt,
-    pub root: Hash,
+    pub root: Option<Hash>,
     pub logs_bloom: Bloom,
 }
 
@@ -344,7 +344,7 @@ impl TransactionReceipt {
             block_number: BigInt::from_raw(t.block_number()),
             cumulative_gas_used: BigInt::from_raw(t.cumulative_gas_used()),
             gas_used: BigInt::from_raw(t.gas_used()),
-            contract_address: Address::from_raw(t.contract_address()),
+            contract_address: t.contract_address().map(Address::from_raw),
             logs: t
                 .logs()
                 .as_slice()
@@ -352,7 +352,7 @@ impl TransactionReceipt {
                 .map(|l| Log::from_raw(l.as_asc_ref()))
                 .collect(),
             status: BigInt::from_raw(t.status()),
-            root: t.root().as_slice().try_into().unwrap(),
+            root: t.root().map(|r| r.as_slice().try_into().unwrap()),
             logs_bloom: t.logs_bloom().as_slice().try_into().unwrap(),
         }
     }

@@ -148,10 +148,10 @@ pub struct AscTransactionReceipt {
     block_number: AscBox<AscBigInt>,
     cumulative_gas_used: AscBox<AscBigInt>,
     gas_used: AscBox<AscBigInt>,
-    contract_address: AscBox<AscAddress>,
+    contract_address: AscNullableBox<AscAddress>,
     logs: AscBox<AscArray<AscBox<AscLog>>>,
     status: AscBox<AscBigInt>,
-    root: AscBox<AscBytes>,
+    root: AscNullableBox<AscBytes>,
     logs_bloom: AscBox<AscBytes>,
 }
 
@@ -180,7 +180,7 @@ impl AscTransactionReceipt {
         self.gas_used.as_asc_ref()
     }
 
-    pub(crate) fn contract_address(&self) -> &AscRef<AscAddress> {
+    pub(crate) fn contract_address(&self) -> Option<&AscRef<AscAddress>> {
         self.contract_address.as_asc_ref()
     }
 
@@ -192,7 +192,7 @@ impl AscTransactionReceipt {
         self.status.as_asc_ref()
     }
 
-    pub(crate) fn root(&self) -> &AscRef<AscBytes> {
+    pub(crate) fn root(&self) -> Option<&AscRef<AscBytes>> {
         self.root.as_asc_ref()
     }
 

@@ -1,5 +1,23 @@
 use subgraph::{address::Address, entity, eth, indexmap::indexmap, log, num::BigInt, store};
 
+unsafe fn sprawl(x: *const u32) -> String {
+    use std::fmt::Write as _;
+
+    if x.is_null() {
+        return String::from("null");
+    }
+
+    let byte_len = *x.sub(5);
+    let len = std::cmp::min(byte_len, 0x100) / 4;
+    let words = std::slice::from_raw_parts(x.sub(4), len as _);
+
+    let mut buf = format!("{byte_len}");
+    for word in words {
+        write!(&mut buf, " {:08x}", word).unwrap();
+    }
+    buf
+}
+
 /// `Transfer` event entry point.
 ///
 /// # Safety
@@ -7,6 +25,23 @@ use subgraph::{address::Address, entity, eth, indexmap::indexmap, log, num::BigI
 /// Should only ever be called by the Subgraph host.
 #[no_mangle]
 pub unsafe extern "C" fn transfer_handler(event: eth::EventPtr) {
+    macro_rules! debug {
+        ($($f:tt)*) => {
+            log::log(log::Level::Warning, &format!($($f)*))
+        };
+    }
+
+    debug!("event  {}", sprawl(event.cast()));
+    for i in 0..8 {
+        debug!("field{i} {}", sprawl(*event.cast::<*const u32>().add(i)));
+    }
+    for (x, n) in [(4, 15), (5, 9), (7, 11)] {
+        let sub = *event.cast::<*const *const u32>().add(x);
+        for i in 0..n {
+            debug!("field{x}.{i} {}", sprawl(*sub.add(i)));
+        }
+    }
+
     transfer(eth::Event::from_ptr(event));
 }
 
