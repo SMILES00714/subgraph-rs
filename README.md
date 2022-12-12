@@ -4,10 +4,10 @@ Write Subgraphs for The Graph protocol in Rust 🦀.
 
 ## Roadmap
 
-- [ ] Test-bench for executing mapping modules for rapid development
-- [ ] Hello world mapping with manual deployment
-- [ ] Manual deployment to local subgraph node
-- [ ] MVP Subgraph API coverage (at least enough to create a subgraph for GRT)
+- [x] Test-bench for executing mapping modules for rapid development
+- [x] Hello world mapping with manual deployment
+- [x] Manual deployment to local subgraph node
+- [x] MVP Subgraph API coverage (at least enough to create a subgraph for GRT)
 - [ ] Basic `cargo-subgraph` to local node
 - [ ] `cargo-subgraph` to Subgraph Studio
 - [ ] Procedural attribute macro for type-safe mapping handlers
